@@ -88,18 +88,28 @@ def main():
                 payload_g['files'] = fg
             if fw:
                 payload_w['files'] = fw
-        sg, dg = post(path, payload_g)
-        demo = (not spec_by_lesson.get(lid)) and (l.get('mode') != 'capstone') and (payload_w.get('code') == payload_g.get('code')) and not payload_g.get('files')
-        sw, dw = (0, {'passed': None, 'cases': []}) if demo else post(path, payload_w)
+        if lid == 'l2':
+            okall = True
+            for sc in ('', 'all-bad', 'no-bad'):
+                sg2, dg2 = post(path, dict(payload_g, scenario=sc))
+                p2 = dg2.get('passed')
+                if sg2 != 200 or p2 is not True:
+                    okall = False
+            sg, dg = 200, {'passed': okall, 'cases': [{'actual': 'default/all-bad/no-bad 全过=' + str(okall)}]}
+            sw, dw = 200, {'passed': okall, 'cases': []}
+            demo = True
+        else:
+            sg, dg = post(path, payload_g)
+            demo = (not spec_by_lesson.get(lid)) and (l.get('mode') != 'capstone') and (payload_w.get('code') == payload_g.get('code')) and not payload_g.get('files')
+            sw, dw = (0, {'passed': None, 'cases': []}) if demo else post(path, payload_w)
         pg = dg.get('passed')
         if pg is None: pg = (dg.get('judge') or {}).get('passed')
         pw = dw.get('passed')
         if pw is None: pw = (dw.get('judge') or {}).get('passed')
-        skip_g = pg is None
-        status_g = '跳过' if skip_g else ('通过' if pg else '失败')
-        status_w = '无编辑反例' if demo else ('跳过' if pw is None else ('通过' if pw else '失败'))
+        status_g = ('HTTP错误' if sg >= 400 else '未完成') if sg != 200 else ('跳过' if pg is None else ('通过' if pg else '失败'))
+        status_w = '无编辑反例' if demo else (('HTTP错误' if sw >= 400 else '未完成') if sw != 200 else ('跳过' if pw is None else ('通过' if pw else '失败')))
         reason = ''
-        if skip_g:
+        if pg is None and sg == 200:
             reason = str((dg.get('cases') or [{}])[0].get('extra', {}).get('not_measured', ''))[:60]
         rows.append(dict(id=lid, title=l['title'], engine=eng, ref_status=status_g, ref_http=sg,
                          counter_status=status_w, counter_http=sw, reason=reason,

@@ -250,7 +250,7 @@
                     node('span', 'run ' + (r.run_id || '-'), 'small'));
         row.append(head);
         const open = node('button', '打开旧结果', 'pill');
-        open.onclick = () => { S.result = { cases: r.cases, error: r.error, passed: r.passed, run_id: r.run_id }; S.cases = r.cases || []; chooseCase(0); renderCounts(); };
+        open.onclick = () => { S.result = { cases: r.cases, error: r.error, passed: r.passed, run_id: r.run_id }; S.cases = r.cases || []; $('result-body').hidden = false; $('results-empty').hidden = true; $('run-label').textContent = '历史 run ' + (r.run_id || '-'); status(r.passed === true ? '通过(历史)' : r.passed === false ? '失败(历史)' : '跳过(历史)', r.passed === true ? 'ok' : r.passed === false ? 'bad' : 'wait'); chooseCase(0); renderCounts(); renderDB(); };
         const cmp = node('button', '对比代码', 'pill');
         cmp.onclick = () => { const d = node('details'); d.append(node('summary', '旧代码 vs 当前'), node('pre', '旧:\n' + r.code + '\n\n当前:\n' + code())); row.append(d); };
         const load = node('button', '载入旧代码(需确认)', 'pill');
@@ -434,8 +434,9 @@
     $('run').disabled = true; status('运行中…', 'wait');
     $('results-empty').textContent = '正在 ' + engineBadge(S.meta) + ' 执行，请稍候。';
     showNotice();
+    let payload = null;
     try {
-      const payload = cap ? { problem: S.meta.problem, mode: S.lang, scenario: $('scenario').value, code: value } : { lesson_id: S.meta.id, code: S.meta.build_presets ? '' : value, choice: $('choice').value, scenario: $('scenario').value };
+      payload = cap ? { problem: S.meta.problem, mode: S.lang, scenario: $('scenario').value, code: value } : { lesson_id: S.meta.id, code: S.meta.build_presets ? '' : value, choice: $('choice').value, scenario: $('scenario').value };
       if (S.meta.build_presets) {
         payload.files = {};
         for (const k of Object.keys(S.meta.build_presets)) {
@@ -467,9 +468,10 @@
       if (S.saved !== code()) status('代码已改 · 上次结果', 'wait');
       recordHistory(lid, payload, res, null); renderCounts(); renderHistory();
     } catch (e) {
-      recordHistory(lid, payload, null, e);
+      try { recordHistory(lid, payload || { code: value, scenario: $('scenario').value }, null, e); } catch (he) {}
       if (seq !== S.seq || S.meta.id !== lid) return;
       clearResult(); status('未完成', 'bad'); renderCounts();
+      $('results-empty').textContent = '本次未获得测试结果：' + e.message + '（可重试）';
       $('results-empty').textContent = '本次未获得测试结果：' + e.message;
       showNotice('请检查课程服务是否已启动，再运行一次。');
     } finally { if (seq === S.seq && S.meta.id === lid) { S.busy = false; $('run').disabled = false; } }

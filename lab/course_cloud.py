@@ -88,8 +88,9 @@ def _book(c, key, nights, guard_sql):
         c.execute('INSERT INTO bookings VALUES(%s,%s)', (key, 'BOOKED'))
         for n in nights:
             c.execute('INSERT INTO booking_nights VALUES(%s,%s,%s)', (key, room, n))
-        c.execute('INSERT INTO outbox(request_key, kind, payload) VALUES(%s,%s,%s)',
-                  (key, 'booking', json.dumps(dict(net_cents=0, room_nights=len(nights), biz_date=nights[0], room_id=room))))
+        for n in nights:
+            c.execute('INSERT INTO outbox(request_key, kind, payload) VALUES(%s,%s,%s)',
+                      (key, 'booking', json.dumps(dict(net_cents=0, room_nights=1, biz_date=n, room_id=room))))
         c.execute('COMMIT')
     except psycopg.errors.UniqueViolation:
         c.execute('ROLLBACK')
@@ -140,7 +141,11 @@ def _lake_clean(lake, dedup_cond, subdir='parquet'):
     raw = str(Path(lake) / 'raw' / '*.json')
     con.execute(f"CREATE TABLE raw AS SELECT * FROM read_json_auto('{raw}')")
     total = con.execute('SELECT COUNT(*) FROM raw').fetchone()[0]
-    con.execute("CREATE TABLE valid AS SELECT * FROM raw WHERE TRY_CAST(net_cents AS INTEGER) IS NOT NULL AND biz_date IS NOT NULL AND TRY_CAST(biz_date AS DATE) IS NOT NULL")
+    con.execute("CREATE TABLE valid AS SELECT * REPLACE (TRY_CAST(net_cents AS INTEGER) AS net_cents) FROM raw WHERE TRY_CAST(net_cents AS INTEGER) IS NOT NULL AND biz_date IS NOT NULL AND TRY_CAST(biz_date AS DATE) IS NOT NULL")
+    vcols = [d[0] for d in con.execute('SELECT * FROM valid LIMIT 0').description]
+    for col, typ in (('room_nights', 'INTEGER'), ('net_cents', 'INTEGER'), ('biz_date', 'VARCHAR'), ('event_id', 'BIGINT'), ('request_key', 'VARCHAR'), ('kind', 'VARCHAR')):
+        if col not in vcols:
+            con.execute(f'ALTER TABLE valid ADD COLUMN {col} {typ}')
     bad_rows = _rows(con.execute("SELECT * FROM raw WHERE TRY_CAST(net_cents AS INTEGER) IS NULL OR biz_date IS NULL OR TRY_CAST(biz_date AS DATE) IS NULL"))
     reasons = []
     for r in bad_rows:
@@ -316,10 +321,10 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
             (rawdir / 'bad_missing.json').write_text(json.dumps(dict(event_id=901, request_key='bad-1', kind='order_placed', biz_date='2026-12-07')), encoding='utf-8')
             (rawdir / 'bad_date.json').write_text(json.dumps(dict(event_id=902, request_key='bad-2', kind='order_placed', net_cents=100, biz_date='not-a-date')), encoding='utf-8')
             (rawdir / 'bad_amount.json').write_text(json.dumps(dict(event_id=903, request_key='bad-3', kind='order_placed', net_cents='abc', biz_date='2026-12-07')), encoding='utf-8')
-        if scenario == 'all-bad':
-            for f in rawdir.glob('event_*.json'):
-                f.unlink()
     ev, rc = _worker(schema, lake)
+    if cc == 'l2' and scenario == 'all-bad':
+        for f in (Path(lake) / 'raw').glob('event_*.json'):
+            f.unlink()
     for e in ev:
         wstep(e)
     if cc in ('l4', 'f1'):
@@ -350,22 +355,30 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
         if scenario == 'no-bad':
             passed = passed and bad_n == 0
         return [case('校验字段·坏记录列原因', passed, expected=f'原始{raw_n}=有效{valid_n}+拒绝{bad_n} 且坏不进报表',
-                     actual=f'原始{raw_n} 有效{valid_n} 坏{bad_n}', steps=steps, extra=extra)]
+                     actual=f'原始{raw_n} 有效{valid_n} 坏{bad_n} 等式={raw_n == valid_n + bad_n} 坏进报表={bad_in_report} rerr={rerr}', steps=steps, extra=extra)]
     if cc == 'l3':
         con.execute(f"CREATE VIEW pq AS SELECT * FROM read_parquet('{(Path(lake)/'parquet').as_posix()}/**/*.parquet', hive_partitioning=true)")
         rows, cols, err = _report(con, report_sql, source='pq')
         m = re.search(r"biz_date\s*=\s*'([^']+)'", report_sql)
         hit = [f for f in info['files'] if m.group(1) in f] if m else info['files']
         steps.append(step('你的 DuckDB SQL 真读 Parquet', 'read', {'报表': rows or [], '命中文件': hit}, report_sql, err, '学生'))
-        extra.update(hit_files=hit, columns=cols)
-        passed = err is None and len(hit) >= 1 and cols and 'biz_date' in cols and 'net_cents' in cols
+        base_rows, _, _ = _report(con, DEFAULT_REPORT)
+        base_net = {str(r['biz_date']): r['net_cents'] for r in (base_rows or [])}
+        got_net = {str(r.get('biz_date')): r.get('net_cents') for r in (rows or [])}
+        values_ok = (got_net == base_net)
+        extra.update(hit_files=hit, columns=cols, base_net=base_net)
+        passed = err is None and len(hit) >= 1 and cols and 'biz_date' in cols and 'net_cents' in cols and values_ok
         return [case('改一条 DuckDB SQL 看读了哪些分区', passed, expected='查询成功且命中分区文件≥1 含 biz_date/net_cents 列',
-                     actual=f'err={err} 命中{len(hit)} 列{cols}', error=err, steps=steps, extra=extra)]
+                     actual=f'err={err} 命中{len(hit)} 列{cols} 值符合={values_ok}', error=err or (None if values_ok else '净额与基准不符（如全0）'), steps=steps, extra=extra)]
     if cc == 'l4':
         con2, info2 = _lake_clean(lake, dedup_cond, subdir='parquet2')
+        rb1 = duckdb.connect(); rb1.execute("SET memory_limit='256MB'")
+        p1 = rb1.execute(f"SELECT * FROM read_parquet('{(Path(lake)/'parquet').as_posix()}/**/*.parquet', hive_partitioning=true) ORDER BY event_id").fetchall()
+        rb2 = duckdb.connect(); rb2.execute("SET memory_limit='256MB'")
+        p2 = rb2.execute(f"SELECT * FROM read_parquet('{(Path(lake)/'parquet2').as_posix()}/**/*.parquet', hive_partitioning=true) ORDER BY event_id").fetchall()
         r1, _, e1 = _report(con, DEFAULT_REPORT)
         r2, _, e2 = _report(con2, DEFAULT_REPORT)
-        same = (r1 == r2) and ([f.replace('parquet/', '') for f in info['files']] == [f.replace('parquet2/', '') for f in info2['files']])
+        same = (p1 == p2) and (r1 == r2) and ([f.replace('parquet/', '') for f in info['files']] == [f.replace('parquet2/', '') for f in info2['files']])
         net = sum(r['net_cents'] for r in r1 or [])
         nights = sum(r['room_nights'] for r in r1 or [])
         perday = {str(r['biz_date']): r['room_nights'] for r in r1 or []}
@@ -373,9 +386,9 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
         steps.append(step('同批原始连跑两次独立读回比较', 'read', {'跑1': r1 or [], '跑2': r2 or []}, None, f'两次一致={same}', '对账'))
         extra.update(run2=info2, perday=perday, netday=netday)
         passed = (e1 is None and e2 is None and same and net == 5000 and nights == 4
-                  and perday.get('2026-12-07') == 2 and perday.get('2026-12-08') == 2
+                  and perday.get('2026-12-07') == 1 and perday.get('2026-12-08') == 2 and perday.get('2026-12-09') == 1
                   and netday.get('2026-12-08') == -4900 and info['dup'] >= 1)
-        return [case('重复/迟到/跨午夜重跑对账', passed, expected='两次一致 净5000 间夜4 逐日{07:2,08:2} 迟到退款归08',
+        return [case('重复/迟到/跨午夜重跑对账', passed, expected='两次Parquet独立读回一致 净5000 间夜4 逐日{07:1,08:2,09:1} 迟到退款归08',
                      actual=f'净{net} 间夜{nights} 逐日{perday} 重复{info["dup"]} 一致={same}', steps=steps, extra=extra)]
     if cc == 'l5':
         rows, cols, err = _report(con, report_sql)
@@ -390,6 +403,9 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
     if cc == 'f1':
         r_retry = _place(c, 'ord-1', 'A', 1, 9900, '2026-12-07', DEFAULT_GUARD)
         steps.append(step('同请求键重试（真实事务）', 'committed', {}, None, f'replayed={r_retry.get("replayed")}', 'API'))
+        redel = c.execute('SELECT MIN(event_id) FROM outbox').fetchone()[0]
+        c.execute('UPDATE outbox SET published=false WHERE event_id=%s', (redel,))
+        steps.append(step('把同一事件重新置为待发送（模拟重投）', 'pending', {}, None, f'event_id={redel}', 'outbox'))
         ev3, rc3 = _worker(schema, lake, stop_before_ack=True)
         for e in ev3:
             wstep(e, 'worker#3')
@@ -401,9 +417,11 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
         net = sum(r['net_cents'] for r in rows or [])
         n_orders = c.execute('SELECT COUNT(*) FROM orders').fetchone()[0]
         n_res = c.execute('SELECT COUNT(*) FROM consumer_results').fetchone()[0]
-        extra.update(pod='未实测（无 kind 集群）', net=net)
+        deliver_n = sum(1 for e in ev3 + ev4 if e['op'] == 'deliver' and e.get('event_id') == redel)
+        res_redel = c.execute('SELECT COUNT(*) FROM consumer_results WHERE event_id=%s', (str(redel),)).fetchone()[0]
+        extra.update(pod='未实测（无 kind 集群）', net=net, redelivered_event_id=redel, deliver_count=deliver_n, res_for_redel=res_redel)
         steps.append(step('Pod 环节', 'illustrative', {}, None, '未实测：无 kind 集群，不计入通过', 'K8s'))
-        passed = err is None and net == 5000 and n_orders == 2 and n_res >= 1 and r_retry.get('replayed')
+        passed = err is None and net == 5000 and n_orders == 2 and n_res >= 1 and r_retry.get('replayed') and deliver_n == 2 and res_redel == 1 and rc3 == 73
         return [case('结课：同一订单贯穿各环节', passed, expected='净5000 订单2(重试回放不新增) 结果去重正确',
                      actual=f'净{net} 订单{n_orders} 结果{n_res}', error=err or (None if passed else '去重条件错误导致净额不符'), steps=steps, extra=extra)]
     return [case(cc, False, error='unknown cloud case', steps=steps, extra=extra)]

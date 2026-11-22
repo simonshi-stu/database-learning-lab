@@ -163,6 +163,8 @@ CASES = [
     dict(lesson='c1', batch=7, good='SELECT sku, qty FROM products', wrong='SELECT sku FROM products'),
     dict(lesson='d5', batch=7, good='max_attempts: 4', wrong='max_attempts: 1', scenario='recover'),
     dict(lesson='f1', batch=7, good='rn = 1', wrong='rn >= 1'),
+    dict(lesson='l2', batch=7, good='', wrong='', scenario='', both_pass=True),
+    dict(lesson='l2', batch=7, good='', wrong='', scenario='all-bad', both_pass=True),
     dict(lesson='l2', batch=7, good='', wrong='', scenario='no-bad', both_pass=True),
     dict(lesson='d3', batch=7, good='', wrong='', both_pass=True),
     dict(lesson='d4', batch=7, good='', wrong='', both_pass=True),

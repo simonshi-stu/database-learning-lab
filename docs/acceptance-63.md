@@ -55,15 +55,15 @@
 | d4 | PostgreSQL+DuckDB/数据湖 | 通过 | 通过 | 结果1行 rc1=73 |
 | d5 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | 结果1 失败2 |
 | l1 | PostgreSQL+DuckDB/数据湖 | 通过 | 无编辑反例 | 相等 |
-| l2 | PostgreSQL+DuckDB/数据湖 | 通过 | 通过 | 原始2 有效2 坏0 |
-| l3 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | err=None 命中2 列['biz_date', 'net_cents'] |
-| l4 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | 净5000 间夜4 逐日{'2026-12-07': 2, '2026-12-08': 2} 重复1 |
+| l2 | PostgreSQL+DuckDB/数据湖 | 通过 | 无编辑反例 | default/all-bad/no-bad 全过=True |
+| l3 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | err=None 命中2 列['biz_date', 'net_cents'] 值符合=True |
+| l4 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | 净5000 间夜4 逐日{'2026-12-07': 1, '2026-12-08': 2, '20 |
 | l5 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | err=None 行[{'biz_date': '2026-12-07', 'net_cents': |
 | k1 | Docker/K8s | 通过 | 通过 | Up 2 seconds |
 | k2 | Docker/K8s | 跳过 | 无编辑反例 | 跳过：示意 replicas=2；无集群未实测。安装入口：1) Docker Desktop 已装；2) 下载 kind |
-| k3 | Docker/K8s | 跳过 | 跳过 | 跳过：示意 UID uid-219c3c1e→uid-7882935d；无集群未实测。安装入口：1) Docker De |
+| k3 | Docker/K8s | 跳过 | 跳过 | 跳过：示意 UID uid-336dc123→uid-e7ce195f；无集群未实测。安装入口：1) Docker De |
 | k4 | Docker/K8s | 跳过 | 无编辑反例 | 跳过：示意探针行为；无集群未实测。安装入口：1) Docker Desktop 已装；2) 下载 kind.exe 放入 |
 | k5 | Docker/K8s | 跳过 | 跳过 | 跳过：示意 rollout/回滚；无集群未实测。安装入口：1) Docker Desktop 已装；2) 下载 kind |
-| f1 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | 净5000 订单2 结果5 |
+| f1 | PostgreSQL+DuckDB/数据湖 | 通过 | 失败 | 净5000 订单2 结果7 |
 
 参考解：通过 59 / 失败 0 / 跳过 4（共 63 关）。

@@ -308,3 +308,9 @@ footer a { color: var(--blue); font-weight: 700; }
 .home-row.is-done .nav-num { color: var(--green); }
 .home-title { flex: 1; }
 @media (max-width: 820px) { #home-map { grid-template-columns: 1fr; } }
+
+@media (max-width: 820px) {
+  .board-head { flex-wrap: wrap; }
+  .chapter-arrows { margin-left: auto; flex-shrink: 0; }
+  .board-head > div:first-child { min-width: 0; flex: 1 1 100%; }
+}
