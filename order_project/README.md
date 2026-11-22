@@ -47,3 +47,5 @@ python order_project/run_cluster.py --context kind-order-lab
 脚本在随机命名的教学命名空间运行：创建代码 ConfigMap、PVC、Service、Deployment；等待 Pod 的 Ready 条件并验证 Service 的 EndpointSlice 是否已列出该 Pod；经仅绑定本机的 port-forward 发起探针与真实订单；删除本次教学 Pod；等待另一个 UID 就绪；验证同一 PVC 的声明 UID、原请求的重放、剩余库存从 4 变成 3。输出 JSON 行，`result.passed=true` 才代表通过。拉镜像或绑定卷失败会显示实测失败及诊断，示意记录不会计为通过。默认会请求清理该实验命名空间；`--keep` 仅用于保留实验资源便于手动检查。
 
 学生可以用仓库里的 kind 工作流在自己的 GitHub Actions 运行，不需要向课程网页提供 kubeconfig。课堂示例只演示应用 Pod 故障和单节点的磁盘保留，不承诺节点故障恢复或零停机；扩成多副本之前，需要更换数据库部署方式。
+
+导出项目的 GitHub Actions 会在另一个无集群、没有持久化 GitHub 凭据的任务中，用下载的真实证据复跑学生的 `observe.py`。分析器的判断不会改变前一个任务记录的独立集群结果。收到证据后可在导出目录运行 `PYTHONPATH=. python tests/checks.py --observation order-observation.json` 对照；参考项目命令把 `PYTHONPATH` 换成 `order_project/reference`，并使用 `order_project/tests/checks.py`。

@@ -71,7 +71,7 @@
       "goal": "解释真实运行记录，并在专用教学集群里验证探针、Pod 替换、请求重试和库存延续。",
       "concepts": ["用 UID 而不是名字确认是否换了 Pod", "原小票、卷标识和新订单一起证明状态保留", "浏览器夹具测试代码判断，真实集群运行才是部署证据"],
       "example": "Pod 1 下第一单库存余 4；删掉 Pod 1，Pod 2 就绪，重发原键返回旧小票且不扣库存；新键下一单余 3。",
-      "acceptance": ["新 Pod UID 与旧 UID 不同", "前后两探针返回 200，PVC 声明 UID 不变", "重试返原小票，下一笔库存确实继续扣"],
+      "acceptance": ["新 Pod UID 与旧 UID 不同", "前后两探针返回 200，PVC 声明 UID 不变", "重试返原小票；新请求键、商品与库存变化都要一致"],
       "starter": "starter/observe.py",
       "reference": "reference/observe.py",
       "test": "RecoveryChecks"

@@ -5,6 +5,7 @@ import json
 import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
+import sys
 
 
 WORK = Path.cwd()
@@ -174,7 +175,8 @@ class RecoveryChecks(unittest.TestCase):
         order = {"request_key":"one", "sku":"A", "qty":1, "stock_left":4, "replayed":False}
         return (dict(uid="pod-one", claim_uid="same-volume", live=200, ready=200, order_status=201, order=order),
                 dict(uid="pod-two", claim_uid="same-volume", live=200, ready=200, replay_status=200,
-                     replay={**order, "replayed":True}, new_status=201, new_order={"stock_left": 3}))
+                     replay={**order, "replayed":True}, new_status=201,
+                     new_order={**order, "request_key":"two", "stock_left":3}))
 
     def test_01_positive_evidence(self):
         """所有证据齐全：探针成功、Pod 换代、小票和库存仍在。"""
@@ -189,3 +191,48 @@ class RecoveryChecks(unittest.TestCase):
         after["replay"]["stock_left"] = 5
         self.assertEqual(analyze(before, after), dict(healthy=False, new_pod=False, same_volume=False, persisted=False))
         self.assertFalse(any(analyze({}, {}).values()))
+
+
+    def test_03_new_receipt_must_belong_to_new_request(self):
+        """库存变化不能单独证明新订单：也核对请求键、商品和重放标志。"""
+        from observe import analyze
+        for patch in ({"request_key": "one"}, {"request_key": None}, {"sku": "B"}, {"qty": 2}, {"replayed": True}):
+            before, after = self.fixture()
+            after["new_order"].update(patch)
+            with self.subTest(patch=patch):
+                self.assertFalse(analyze(before, after)["persisted"])
+
+
+def verify_observation(path, analyze):
+    """Compare an analyzer with independent results from one finished cluster run."""
+    events = {}
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        event = json.loads(line)
+        if event["event"] in ("before", "after", "result"):
+            if event["event"] in events:
+                raise ValueError("Use evidence from exactly one cluster run.")
+            events[event["event"]] = event
+    if set(events) != {"before", "after", "result"} or events["result"].get("passed") is not True:
+        raise ValueError("A successful independent cluster run is required.")
+    expected = events["result"]["checks"]
+    actual = analyze(events["before"], events["after"])
+    if not isinstance(actual, dict) or set(actual) != set(expected):
+        raise ValueError("Return one boolean for each independently verified check.")
+    if any(type(actual[name]) is not bool or actual[name] is not expected[name] for name in expected):
+        raise ValueError(f"Analyzer differs from the independent result. Expected {expected}; got {actual}.")
+    return actual
+
+
+if __name__ == "__main__" and "--observation" in sys.argv:
+    # This entry point is only for a learner-owned runner after cluster teardown.
+    # Browser unit tests load the test definitions without invoking this entry point.
+    import argparse
+    from observe import analyze
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--observation", required=True, help="JSON lines from a completed run_cluster.py invocation")
+    args = parser.parse_args()
+    print(json.dumps({"analyzer_matched_cluster": True, "checks": verify_observation(args.observation, analyze)},
+                     ensure_ascii=False))

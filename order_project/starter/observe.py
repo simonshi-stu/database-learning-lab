@@ -7,5 +7,5 @@ def analyze(before, after):
     # new_status, new_order（同一个 SKU 新买 1 件）
     # TODO 1: 前后 /live 和 /ready 都应返回 200。
     # TODO 2: 两个非空 Pod UID 不同，且持久卷声明 UID 相同。
-    # TODO 3: 旧请求重试返回原小票，新请求只再扣 1 件。
+    # TODO 3: 旧请求重试返回原小票，新请求用不同的非空键、同一个 SKU，只再扣 1 件（不是重放）。
     return {"healthy": False, "new_pod": False, "same_volume": False, "persisted": False}

@@ -13,3 +13,5 @@
 
 已有专用本地 kind 教学集群，也可以运行
 `python run_cluster.py --project-dir . --context kind-order-lab --image python:3.12-slim`。
+
+工作流还会在独立的无集群任务里，使用真实证据复跑你的 `observe.py`。两项结果分开：集群独立验证通过，表示探针、换 Pod、旧小票与新订单都核实；分析器通过，表示你的代码正确解释了那次真实实验。下载 `order-observation` 后也可在导出目录执行 `PYTHONPATH=. python tests/checks.py --observation order-observation.json` 自己核对。

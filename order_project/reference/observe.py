@@ -13,9 +13,15 @@ def analyze(before, after):
         "same_volume": bool(before_claim and before_claim == after_claim),
         "persisted": (before.get("order_status") == 201
                       and after.get("replay_status") == 200 and replay.get("replayed") is True
+                      and before_order.get("replayed") is False
                       and bool(before_order.get("request_key"))
                       and all(replay.get(k) == before_order.get(k) for k in ("request_key", "sku", "qty", "stock_left"))
                       and after.get("new_status") == 201
+                      and bool(second.get("request_key"))
+                      and second["request_key"] != before_order["request_key"]
+                      and second.get("sku") == before_order.get("sku")
+                      and type(second.get("qty")) is int and second["qty"] == 1
+                      and second.get("replayed") is False
                       and type(remaining) is int
                       and second.get("stock_left") == remaining - 1),
     }

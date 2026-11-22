@@ -150,6 +150,9 @@ def run(lab, image):
             and replay.get("replayed") is True and order.get("request_key") == "one"
             and all(replay.get(k) == order.get(k) for k in ("request_key", "sku", "qty", "stock_left"))
             and new_order.get("request_key") == "two"
+            and new_order.get("sku") == order.get("sku")
+            and new_order.get("qty") == 1
+            and order.get("replayed") is False and new_order.get("replayed") is False
             and order.get("stock_left") == 4 and new_order.get("stock_left") == 3
         ),
     }
