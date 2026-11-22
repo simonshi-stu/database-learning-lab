@@ -20,6 +20,8 @@ CASES = [
     ('sales-last-unit', 'python', sales.WRONG_NO_IDEMPOTENCY, 'race', False, '销售错误解②漏幂等'),
     ('sales-last-unit', 'python', sales.STARTER, 'race', False, '销售起始代码'),
     ('sales-last-unit', 'python', sales.REFERENCE, 'busy', True, '销售参考解·锁忙场景'),
+    ('sales-last-unit', 'python', sales.REFERENCE, 'conflict', True, '销售参考解·同键不同内容'),
+    ('sales-last-unit', 'python', sales.WRONG_NO_IDEMPOTENCY, 'conflict', False, '销售漏幂等·同键不同内容'),
     ('sales-last-unit', 'sql', sales.SQL_REFERENCE, 'race', True, '销售参考SQL'),
     ('sales-last-unit', 'sql', sales.SQL_WRONG, 'race', False, '销售错误SQL'),
     ('hotel-two-nights', 'python', hotel.REFERENCE, 'full', True, '酒店参考解'),

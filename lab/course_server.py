@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .server import ROOT, app
-from . import course_engines, course_pg, course_build, course_cpp  # noqa: F401  注册全部引擎
+from . import course_engines, course_pg, course_build, course_cpp, course_content  # noqa: F401  注册全部引擎
 
 
 def lesson(id, title, summary, goal, starter="", hint="", solution="", problem=None,
@@ -609,7 +609,14 @@ def course_page():
 
 @app.get("/api/course")
 def syllabus():
-    return {"lessons": [dict(item, fixtures=FIXTURES.get(item["id"], [])) for item in LESSONS]}
+    return {"lessons": [dict(item, fixtures=FIXTURES.get(item["id"], []),
+                             content=course_content.content_for(item["id"]),
+                             glossary=course_content.GLOSSARY) for item in LESSONS]}
+
+
+@app.get("/api/course/checklist")
+def checklist():
+    return {"rows": course_content.checklist_rows(LESSONS), "glossary": course_content.GLOSSARY}
 
 
 @app.post("/api/course/run")

@@ -84,26 +84,44 @@
       <div class="workgrid">
         <section class="paper brief" aria-labelledby="brief-title">
           <div class="pin-head"><span class="pin pin-blue" aria-hidden="true"></span><h2 id="brief-title">题目</h2><span id="kind" class="tag">基础练习</span></div>
-          <div class="pad">
+          <div class="pad read-order">
+            <p class="problem-title" id="problem-title"></p>
             <div id="goal" class="prose"></div>
+            <div id="glossary"></div>
+            <div class="diagram-wrap">
+              <div class="diagram-toolbar">
+                <button id="dg-prev" type="button">上一步</button>
+                <button id="dg-next" type="button">下一步</button>
+                <button id="dg-zoom-in" type="button" aria-label="放大">＋</button>
+                <button id="dg-zoom-out" type="button" aria-label="缩小">－</button>
+                <button id="dg-reset" type="button">复位</button>
+                <span class="small" id="dg-hint">点节点定位 SQL 与表变化</span>
+              </div>
+              <div class="diagram-viewport" id="dg-viewport"><div class="diagram-canvas" id="dg-canvas"></div></div>
+            </div>
+            <div class="why-cards" id="why-cards"></div>
+            <div id="why-final"></div>
             <div id="predict-wrap" hidden>
               <p id="predict-q" class="predict-q"></p>
               <div id="predict-opts" class="pills" role="group" aria-label="先猜结果"></div>
             </div>
             <h3>看一眼例子</h3>
             <div id="example"></div>
-            <pre id="schema" class="schema"></pre>
-            <details id="hint-wrap">
+            <details id="contract-wrap" class="fold-section" hidden>
+              <summary>接口约定 / 表结构 / 种子数据</summary>
+              <div class="fold-body"><pre id="schema" class="schema"></pre><div id="contract" class="prose"></div></div>
+            </details>
+            <details id="fold-sql" class="fold-section">
+              <summary>完整 SQL 与边界用例</summary>
+              <div class="fold-body"><div id="full-sql" class="prose"></div><div id="boundary" class="prose"></div></div>
+            </details>
+            <details id="hint-wrap" class="fold-section">
               <summary>看一点提示</summary>
               <div id="hint" class="prose"></div>
             </details>
-            <details id="principle-wrap" hidden>
-              <summary>为什么（原理）</summary>
+            <details id="principle-wrap" class="fold-section" hidden>
+              <summary>为什么（原理 · 深读）</summary>
               <div id="principle" class="prose"></div>
-            </details>
-            <details id="contract-wrap" hidden>
-              <summary>业务图 / 接口约定 / 初始数据 / 测试</summary>
-              <div id="contract" class="prose"></div>
             </details>
             <div id="mascot" class="mascot" hidden>
               <svg class="mascot-duck" aria-hidden="true"><use href="#qduck"/></svg>

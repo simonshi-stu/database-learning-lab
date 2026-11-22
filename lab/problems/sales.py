@@ -281,6 +281,15 @@ def execute(ctx):
         rec.emit('note', 'holder', '外部连接释放写锁 · ROLLBACK')
         db = TracedDatabase(db_path, rec, 'A-retry', TABLES)
         call_user(rec, 'A-retry', REQUEST_A, fn, db, validate, display)
+    elif scenario == 'conflict':
+        db = TracedDatabase(db_path, rec, 'A', TABLES)
+        call_user(rec, 'A', REQUEST_A, fn, db, validate, display)
+        db = TracedDatabase(db_path, rec, 'A-conflict', TABLES)
+        rec.emit('note', 'A-conflict', '同请求键、不同内容（数量改为2）再次提交')
+        call_user(rec, 'A-conflict',
+                  {'request_key': REQUEST_A['request_key'],
+                   'items': [{'product_id': 1, 'quantity': 2}]},
+                  fn, db, validate, display)
     else:
         raise BusinessError(422, 'UNKNOWN_SCENARIO', scenario)
 
@@ -359,6 +368,19 @@ def judge(scenario, events, snapshots, responses):
         checks.append(_check('成功订单恰 1 笔', 1, len(orders), len(orders) == 1))
         notes.append('锁忙（DATABASE_BUSY）是暂时状态：事务没开始、什么都没写，用原请求键重试即可；'
                      '库存不足（INSUFFICIENT_STOCK）是业务结果：事务开始了但条件扣减影响 0 行，整单回滚。两者页面展示不同。')
+    elif scenario == 'conflict':
+        first = next((r for r in responses if r['actor'] == 'A'), None)
+        conf = next((r for r in responses if r['actor'] == 'A-conflict'), None)
+        conf_code = conf['body'].get('error', {}).get('code') if conf else None
+        checks.append(_check('首笔同键下单成功', '200', f"{first['status'] if first else '无'}",
+                             bool(first) and first['status'] == 200))
+        checks.append(_check('同键不同内容返回 409 IDEMPOTENCY_CONFLICT', '409 IDEMPOTENCY_CONFLICT',
+                             f"{conf['status'] if conf else '无'} {conf_code}",
+                             bool(conf) and conf['status'] == 409 and conf_code == 'IDEMPOTENCY_CONFLICT'))
+        checks.append(_check('冲突未新建订单（仍 1 笔）', 1, len(orders), len(orders) == 1))
+        checks.append(_check('冲突未改库存（仍 0）', 0, inv, inv == 0))
+        notes.append('同键不同内容必须拒绝（IDEMPOTENCY_CONFLICT），不能复用旧单也不能新建；'
+                     '本案例为顺序提交。同时同键并发提交未在本课程验证，见页面「未验证」标注。')
     return {'checks': checks, 'passed': all(c['passed'] for c in checks), 'notes': notes}
 
 
@@ -405,6 +427,8 @@ META = {
          'description': 'A/B 两笔不同请求键并发购买，随后用成功那笔的请求键同内容重试。'},
         {'id': 'busy', 'name': '锁忙 vs 库存不足',
          'description': '外部连接先持有写锁：第一笔应得 503 DATABASE_BUSY 且零写入；释放后同键重试成功。'},
+        {'id': 'conflict', 'name': '同键不同内容',
+         'description': '同请求键先下单成功，再以不同内容提交：应 409 IDEMPOTENCY_CONFLICT，不新建不改库存。'},
     ],
     'presets': [
         {'id': 'starter', 'name': '起始代码（待补全）', 'code': STARTER},

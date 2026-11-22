@@ -22,7 +22,7 @@
     illustrative: '示意 · 未实测', wait: '等待锁',
   };
   const PK = {
-    inventory: ['sku'], products: ['id'], orders: ['id'],
+    inventory: ['sku', 'product_id'], products: ['id'], orders: ['id'],
     order_items: ['order_id', 'product_id'], stock_movements: ['id'],
     room_calendar: ['room_id', 'night'], auxiliary_inventory: ['night'],
     bookings: ['request_id'], booking_nights: ['request_id', 'night'],
@@ -270,6 +270,9 @@
     chooseScenario();
     editorMode();
     renderAssist();
+    renderReadingOrder(l);
+    dgReset();
+    renderDiagram();
     $('run').disabled = cap && !S.cap;
     $('cpp-local').hidden = l.engine !== 'cpp_locks';
     showNotice(cap && !S.cap ? '未能读取原版综合题数据。可用右上角「原版实验室」继续；刷新课程页可重试。' : '');
@@ -366,6 +369,7 @@
       renderResponses();
       if (!S.cases.length) { $('case-detail').replaceChildren(node('p', txt(res.error) || '本次返回没有测试明细。', 'small')); }
       else chooseCase(0);
+      renderDiagram();
       if (S.saved !== code()) status('代码已改 · 上次结果', 'wait');
     } catch (e) {
       if (seq !== S.seq || S.meta.id !== lid) return;
@@ -522,7 +526,11 @@
 
   /* ---------- 回放画板 ---------- */
   function steps() { return S.cap ? S.capTimeline : arr(S.cases[S.idx]?.timeline); }
-  function rowKey(table, row) { const pk = PK[table] || Object.keys(row || {}); return pk.map(k => String(row?.[k])).join('|'); }
+  function rowKey(table, row) {
+    let pk = (PK[table] || []).filter(k => row && k in row);
+    if (!pk.length) pk = Object.keys(row || {});
+    return pk.map(k => String(row?.[k])).join('|');
+  }
   function tableOfSql(sql) {
     const m = /insert\s+into\s+([a-z_]+)/i.exec(sql || '') || /update\s+([a-z_]+)/i.exec(sql || '') || /delete\s+from\s+([a-z_]+)/i.exec(sql || '') || /from\s+([a-z_]+)/i.exec(sql || '');
     return m ? m[1].toLowerCase() : null;
@@ -816,7 +824,228 @@
     if (i >= 0 && S.lessons[i] !== S.meta) select(i, true);
   });
   $('home-link').onclick = (e) => { e.preventDefault(); showHome(); };
-  (async () => {
+  bindDiagram();
+  /* ===== 阅读顺序 + 因果链图（SQL→行变化→归宿） ===== */
+  function renderReadingOrder(l) {
+    const c = l.content || {};
+    $('problem-title').textContent = c.problem || l.title;
+    const g = $('glossary'); g.replaceChildren();
+    (c.gloss || []).forEach(term => {
+      const def = (l.glossary || {})[term];
+      if (!def) return;
+      const chip = node('span', null, 'gloss-chip');
+      chip.append(node('b', term), node('span', def));
+      g.append(chip);
+    });
+    const wc = $('why-cards'); wc.replaceChildren();
+    const titles = ['发生了什么', '为什么会这样', '怎么亲手验证'];
+    (c.why || []).forEach((t, i) => {
+      const card = node('div', null, 'why-card w' + (i + 1));
+      card.append(node('h4', (i + 1) + ' · ' + titles[i]), node('p', t));
+      wc.append(card);
+    });
+    const ref = models().find(m => m.id === 'reference' || m.id === 'solution');
+    $('full-sql').textContent = ref ? ref.code : (l.solution || l.starter || '');
+    $('boundary').textContent = (c.checklist ? '用例：' + c.checklist.cases + '\n' : '') +
+      arr(l.scenarios).map(s => s.name + '：' + s.description).join('\n');
+    $('why-final').replaceChildren();
+  }
+
+  function chainNodes() {
+    const all = steps(); const out = [];
+    all.forEach((e, i) => {
+      const info = stateAt(i);
+      const snap = info && info.snap, prev = info && info.prev;
+      const delta = [];
+      if (snap) {
+        const d = diffTables(prev && prev.tables, snap.tables);
+        for (const [t, m] of Object.entries(d)) for (const [k, v] of m) {
+          if (delta.length < 3) delta.push({ t, k, status: v.status, old: v.old, row: v.row });
+        }
+      }
+      out.push({ i, actor: e.actor || '系统', label: e.label, sql: e.sql, rowcount: e.rowcount,
+                 phase: (snap && snap.phase) || e.phase, delta });
+    });
+    return out;
+  }
+  function fateBadge(phase) {
+    const map = { committed: ['✓', '已提交持久'], final: ['✓', '最终持久'], rolled_back: ['↺', '已回滚撤销'],
+                  pending: ['…', '事务内暂时'], in_txn: ['…', '事务内暂时'], read: ['👁', '只读'],
+                  error: ['✗', '被拒绝'], open: ['→', '打开'], close: ['→', '关闭'] };
+    const m = map[phase] || ['·', phase || '快照'];
+    return node('span', m[0] + ' ' + m[1], 'fate ' + (map[phase] ? phase : 'read'));
+  }
+  function dnodeEl(n) {
+    const el = node('div', null, 'dnode' + (n.i === S.step ? ' current' : ''));
+    const head = node('div', null, 'dhead');
+    head.append(node('span', '#' + (n.i + 1), 'nav-num'), node('span', n.actor, 'actor'), fateBadge(n.phase));
+    if (n.rowcount != null) head.append(node('span', '影响 ' + n.rowcount + ' 行', 'small'));
+    el.append(head);
+    if (n.sql) el.append(node('div', n.sql, 'dsql'));
+    n.delta.forEach(d => {
+      const line = node('div', null, 'ddelta');
+      const oldv = d.old ? Object.values(d.old).join(',') : '';
+      const newv = Object.values(d.row).join(',');
+      line.append(node('span', d.t + '[' + d.k + '] ', ''));
+      if (d.status === 'removed') line.append(node('span', newv, 'old'));
+      else if (d.status === 'added') line.append(node('span', '+ ' + newv, 'new'));
+      else { line.append(node('span', oldv, 'old')); line.append(node('span', ' → ', 'arrow')); line.append(node('span', newv, 'new')); }
+      el.append(line);
+    });
+    el.onclick = () => { stop(); S.step = n.i; renderDB(); };
+    return el;
+  }
+  function renderGrid(snap) {
+    const wrap = node('div', null, 'cellgrid');
+    const cal = (snap && snap.tables && snap.tables.room_calendar) || null;
+    const act = (snap && snap.tables && snap.tables.active_room_nights) || [];
+    if (!cal) {
+      wrap.append(node('div', '示意：S101 在 12-08 被占；12-12 两间均封锁。交集为空→拒订。', 'small'));
+      return wrap;
+    }
+    const nights = [...new Set(cal.map(r => r.night))].sort();
+    const rooms = [...new Set(cal.map(r => r.room_id))].sort();
+    const occ = new Set(act.map(r => r.room_id + '|' + r.night));
+    const head = node('div', null, 'cg-row'); head.append(node('span', '夜\\房', 'cg-label'));
+    rooms.forEach(r => head.append(node('span', r, 'cg-label')));
+    wrap.append(head);
+    const bn = (snap && snap.tables && snap.tables.booking_nights) || [];
+    let stay = [...new Set(bn.filter(r => r.request_id === 'R-ok').map(r => r.night))];
+    if (!stay.length) stay = ['2026-12-07', '2026-12-08'];
+    const freeAll = rooms.filter(r => stay.every(n => {
+      const c = cal.find(x => x.room_id === r && x.night === n);
+      return c && !c.blocked && !occ.has(r + '|' + n);
+    }));
+    nights.forEach(n => {
+      const row = node('div', null, 'cg-row'); row.append(node('span', n, 'cg-label'));
+      rooms.forEach(r => {
+        const c = cal.find(x => x.room_id === r && x.night === n);
+        const cell = node('span', null, 'cg-cell');
+        if (c && c.blocked) { cell.classList.add('blocked'); cell.textContent = '封锁'; }
+        else if (occ.has(r + '|' + n)) { cell.classList.add('occupied'); cell.textContent = '已占'; }
+        else { cell.classList.add('free'); cell.textContent = '可用'; }
+        if (freeAll.includes(r)) cell.classList.add('intersect');
+        row.append(cell);
+      });
+      wrap.append(row);
+    });
+    wrap.append(node('div', '入住晚 ' + stay.join(',') + ' 全程可用同一间（交集）：' + (freeAll.join(',') || '无→整单拒订'), 'small'));
+    return wrap;
+  }
+  function renderCells(snap) {
+    const wrap = node('div', null, 'cellgrid');
+    const t = snap && snap.tables;
+    const rows = (t && (t.records || t.frames || t.inventory)) || [];
+    const head = node('div', null, 'cg-row');
+    const cols = rows.length ? Object.keys(rows[0]) : ['(空)'];
+    cols.forEach(c => head.append(node('span', c, 'cg-label')));
+    wrap.append(head);
+    rows.forEach(r => {
+      const row = node('div', null, 'cg-row');
+      cols.forEach(c => row.append(node('span', String(r[c]), 'cg-cell free')));
+      wrap.append(row);
+    });
+    if (!rows.length) wrap.append(node('div', '（空）', 'small'));
+    return wrap;
+  }
+  function renderTree(extra) {
+    const ul = node('ul', null, 'ptree');
+    const plans = (extra && (extra.plan_after || extra.plan_before)) || null;
+    if (plans) {
+      plans.forEach(n => {
+        const li = node('li');
+        li.append(node('span', (n.type || 'node') + ' · est ' + n.est + ' · act ' + n.act + ' · buf hit ' + (n.hit || 0) + ' read ' + (n.read || 0), 'pnode'));
+        ul.append(li);
+      });
+    } else {
+      ul.append(node('li', '示意：根 → 叶 → 叶链（运行后展开真实计划/节点）', 'small'));
+    }
+    return ul;
+  }
+  function renderDiagram() {
+    const canvas = $('dg-canvas'); canvas.replaceChildren();
+    const c = (S.meta && S.meta.content) || {};
+    const aux = c.aux || 'flow';
+    const hasRun = S.result && steps().length;
+    const info = hasRun ? stateAt(S.step) : null;
+    const snap = info && info.snap;
+    if (!hasRun) canvas.append(node('span', '示意 · 未运行（运行后显示真实因果链）', 'schematic-tag'));
+    if (aux === 'grid') canvas.append(renderGrid(snap));
+    else if (aux === 'cells') canvas.append(renderCells(snap));
+    else if (aux === 'tree') canvas.append(renderTree(hasRun ? (S.cases[S.idx] || {}).extra : null));
+    const nodes = hasRun ? chainNodes() : [
+      { i: 0, actor: '请求', label: '发起请求', phase: 'open', delta: [] },
+      { i: 1, actor: '后端', label: '条件 UPDATE', sql: 'UPDATE ... WHERE 条件', phase: 'pending', delta: [] },
+      { i: 2, actor: '后端', label: '看影响行数', phase: 'read', delta: [] },
+      { i: 3, actor: '后端', label: '订单 / 流水', phase: 'pending', delta: [] },
+      { i: 4, actor: '后端', label: '提交 或 回滚', phase: 'committed', delta: [] },
+    ];
+    if (aux === 'lanes' && hasRun) {
+      const lanes = {};
+      nodes.forEach(n => { (lanes[n.actor] = lanes[n.actor] || []).push(n); });
+      const grid = node('div', null, 'chain lanes');
+      Object.entries(lanes).forEach(([actor, ns]) => {
+        const lane = node('div', null, 'lane');
+        lane.append(node('div', actor, 'lane-head'));
+        ns.forEach(n => lane.append(dnodeEl(n)));
+        grid.append(lane);
+      });
+      canvas.append(grid);
+    } else {
+      const chain = node('div', null, 'chain');
+      nodes.forEach(n => chain.append(dnodeEl(n)));
+      canvas.append(chain);
+    }
+    const wf = $('why-final'); wf.replaceChildren();
+    if (hasRun) {
+      const committed = nodes.filter(n => (n.phase === 'committed' || n.phase === 'final') && n.rowcount > 0);
+      const rolled = nodes.filter(n => n.phase === 'rolled_back');
+      const li = stateAt(steps().length - 1);
+      const fin = li && li.snap && li.snap.tables;
+      let summary = '';
+      if (fin) {
+        if (fin.inventory) summary = '最终 inventory=' + JSON.stringify(fin.inventory.map(r => r.sku + ':' + r.qty));
+        else if (fin.booking_nights) summary = '最终房晚 ' + fin.booking_nights.length + ' 行';
+        else if (fin.t) summary = '最终 t=' + JSON.stringify(fin.t.map(r => r.id + ':' + r.qty));
+      }
+      const b = node('div', null, 'why-final');
+      b.append(node('b', '为什么最后留下这个结果：'));
+      b.append(document.createTextNode(
+        (committed.length ? committed.length + ' 笔写入命中并提交（持久）；' : '无命中提交；') +
+        (rolled.length ? rolled.length + ' 笔事务回滚，其临时写入全部撤销；' : '') +
+        (summary || '') + '。点任一节点可核对它改的行与归宿。'));
+      wf.append(b);
+    } else {
+      wf.append(node('div', '运行后，这里用本次真实数据解释「为什么最后留下这个结果」。', 'small'));
+    }
+    applyDgTransform();
+  }
+  const DG = { scale: 1, tx: 0, ty: 0 };
+  function applyDgTransform() {
+    $('dg-canvas').style.transform = 'translate(' + DG.tx + 'px,' + DG.ty + 'px) scale(' + DG.scale + ')';
+  }
+  function dgReset() { DG.scale = 1; DG.tx = 0; DG.ty = 0; applyDgTransform(); }
+  function dgZoom(f) { DG.scale = Math.min(2.5, Math.max(0.5, DG.scale * f)); applyDgTransform(); }
+  function bindDiagram() {
+    $('dg-prev').onclick = () => { stop(); stepAt(S.step - 1); };
+    $('dg-next').onclick = () => { stop(); stepAt(S.step + 1); };
+    $('dg-zoom-in').onclick = () => dgZoom(1.2);
+    $('dg-zoom-out').onclick = () => dgZoom(1 / 1.2);
+    $('dg-reset').onclick = dgReset;
+    const vp = $('dg-viewport'); vp.tabIndex = 0;
+    let drag = null;
+    vp.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, tx: DG.tx, ty: DG.ty }; vp.classList.add('dragging'); vp.setPointerCapture(e.pointerId); });
+    vp.addEventListener('pointermove', e => { if (!drag) return; DG.tx = drag.tx + (e.clientX - drag.x); DG.ty = drag.ty + (e.clientY - drag.y); applyDgTransform(); });
+    vp.addEventListener('pointerup', () => { drag = null; vp.classList.remove('dragging'); });
+    vp.addEventListener('wheel', e => { e.preventDefault(); dgZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1); }, { passive: false });
+    vp.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') { stop(); stepAt(S.step + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft') { stop(); stepAt(S.step - 1); e.preventDefault(); }
+      else if (e.key === '+' || e.key === '=') dgZoom(1.2);
+      else if (e.key === '-') dgZoom(1 / 1.2);
+      else if (e.key === '0') dgReset();
+    });
+  }  (async () => {
     try {
       const [c, p] = await Promise.all([json('/api/course'), json('/api/problems').catch(() => ({ problems: [] }))]);
       S.lessons = arr(c.lessons); S.problems = arr(p.problems);
@@ -825,6 +1054,12 @@
       if (!hash || hash === 'home') { showHome(); return; }
       const i = S.lessons.findIndex(l => l.id === hash);
       if (i < 0) showHome(); else select(i);
+      if (new URLSearchParams(location.search).get('autorun')) {
+        const pr = $('preset');
+        const ref = [...pr.options].find(o => o.value === 'reference' || o.value === 'solution');
+        if (ref) { pr.value = ref.value; pr.dispatchEvent(new Event('change')); $('apply').click(); }
+        setTimeout(() => $('run').click(), 300);
+      }
     } catch (err) {
       $('title').textContent = '课程未加载';
       $('progress-copy').textContent = '目录未加载';
