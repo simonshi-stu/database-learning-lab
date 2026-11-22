@@ -1,5 +1,7 @@
 @echo off
 cd /d "%~dp0"
+if not exist tmp mkdir tmp
+if not exist runs mkdir runs
 set "TEMP=%CD%\tmp"
 set "TMP=%CD%\tmp"
 set "TMPDIR=%CD%\tmp"
