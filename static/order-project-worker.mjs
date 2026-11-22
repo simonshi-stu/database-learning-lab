@@ -20,8 +20,13 @@ exec(compile(qa_source, "/student/checks.py", "exec"), ns)
 stream = io.StringIO()
 suite = unittest.defaultTestLoader.loadTestsFromTestCase(ns[qa_class])
 outcome = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
-failed = len(outcome.failures) + len(outcome.errors)
-skipped = len(outcome.skipped)
+def parent_id(test):
+    # unittest counts a method once even when several of its subtests fail.
+    return getattr(test, "test_case", test).id()
+
+bad_ids = {parent_id(test) for test, _ in outcome.failures + outcome.errors}
+skip_ids = {parent_id(test) for test, _ in outcome.skipped} - bad_ids
+failed, skipped = len(bad_ids), len(skip_ids)
 json.dumps({"ok": outcome.testsRun > 0 and failed == 0 and skipped == 0,
             "total": outcome.testsRun, "failed": failed, "skipped": skipped, "message": stream.getvalue()})
 `);

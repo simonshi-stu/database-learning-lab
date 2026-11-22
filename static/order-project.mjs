@@ -88,8 +88,19 @@ $("project-run").onclick = () => {
     if (token !== serial || current !== ch) return;
     stopWorker(); button.disabled = false;
     if (data.error) { status("未完成",data.error); return; }
-    if (data.ok) { state.passed[ch.id] = candidate; nav(); save(); }
-    status(data.ok ? `通过 · ${data.total}/${data.total}` : `未通过 · ${data.total-data.failed-data.skipped}/${data.total}`, data.message);
+    if (data.ok) {
+      if (Object.hasOwn(state.passed, ch.id) && state.passed[ch.id] !== candidate) {
+        const later = db.chapters.slice(db.chapters.indexOf(ch) + 1);
+        let changed = false;
+        for (const next of later) {
+          if (Object.hasOwn(state.passed, next.id)) { delete state.passed[next.id]; changed = true; }
+        }
+        if (changed) notice("前置文件已更新，后面的草稿仍在，请重新运行后续章节。");
+      }
+      state.passed[ch.id] = candidate;
+      nav(); save();
+    }
+    status(data.ok ? `通过 · ${data.total}/${data.total}` : `未通过 · ${Math.max(0, data.total-data.failed-data.skipped)}/${data.total}`, data.message);
   };
   const timeout = setTimeout(() => finish({error:"加载或执行超时，已停止本次运行。请检查网络，或检查代码中是否有无限循环。"}), 45000);
   try {
