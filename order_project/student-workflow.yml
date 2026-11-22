@@ -1,0 +1,39 @@
+name: My order service — real Kubernetes
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exercise:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Check completed chapters
+        run: PYTHONPATH=. python3 -m unittest discover -s tests -p checks.py -v
+      - name: Start teaching cluster
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          go install sigs.k8s.io/kind@v0.27.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          kind create cluster --name order-lab --wait 120s
+          docker pull python:3.12-slim
+          kind load docker-image --name order-lab python:3.12-slim
+      - name: Observe readiness and replacement
+        run: |
+          set -o pipefail
+          python3 run_cluster.py --project-dir . --context kind-order-lab --image python:3.12-slim | tee order-observation.json
+      - name: Downloadable lab evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: order-observation
+          path: order-observation.json
+          if-no-files-found: ignore
+      - name: Remove cluster
+        if: always()
+        run: if command -v kind >/dev/null; then kind delete cluster --name order-lab; fi

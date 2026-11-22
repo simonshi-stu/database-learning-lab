@@ -6,7 +6,12 @@
 import os
 import uuid
 
-import psycopg
+try:
+    import psycopg
+except ModuleNotFoundError as exc:
+    if exc.name != 'psycopg':
+        raise
+    psycopg = None
 
 DEFAULT_DSN = 'host=127.0.0.1 port=55433 dbname=course_lab user=course connect_timeout=3'
 
@@ -18,6 +23,8 @@ def dsn():
 def available():
     if os.environ.get('COURSE_SKIP_PG'):
         return False, '未配置 PostgreSQL（COURSE_SKIP_PG=1）'
+    if psycopg is None:
+        return False, '未安装 PostgreSQL Python 驱动（psycopg）'
     try:
         c = psycopg.connect(dsn(), autocommit=True)
         c.close()
@@ -27,6 +34,8 @@ def available():
 
 
 def connect(schema=None, autocommit=False, **kw):
+    if psycopg is None:
+        raise RuntimeError('未安装 PostgreSQL Python 驱动（psycopg）')
     c = psycopg.connect(dsn(), autocommit=autocommit, **kw)
     if schema:
         c.execute(f'SET search_path TO {schema}')

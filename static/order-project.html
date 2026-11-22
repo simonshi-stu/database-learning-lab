@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="project-data" content="/api/course/project">
+<title>进阶项目 · 从零搭建订单服务</title>
+<link rel="stylesheet" href="/static/vendor/codemirror.min.css">
+<link rel="stylesheet" href="/static/course.css">
+<link rel="stylesheet" href="/static/order-project.css">
+<script defer src="/static/vendor/codemirror.min.js"></script>
+<script defer src="/static/vendor/sql.min.js"></script>
+<script defer src="/static/vendor/python.min.js"></script>
+<script type="module" src="/static/order-project.mjs"></script>
+</head>
+<body class="order-project">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="qduck" viewBox="0 0 120 120">
+    <g fill="none" stroke="#20201e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M30 78 q-12 4 -14 14 q10 6 22 2" fill="#fff8ec"/>
+      <ellipse cx="62" cy="82" rx="34" ry="26" fill="#fff8ec"/>
+      <circle cx="60" cy="42" r="27" fill="#fffdf6"/>
+      <path d="M52 16 q2 -8 8 -8 M62 15 q4 -7 9 -5" />
+      <path d="M85 40 q14 2 14 8 q0 6 -15 7" fill="#e8503a"/>
+      <path d="M40 82 q10 -8 22 -2" />
+      <path d="M96 96 l14 -20" stroke="#e8503a" stroke-width="7"/>
+      <path d="M110 76 l4 -6" stroke="#2f6fe4" stroke-width="7"/>
+    </g>
+    <circle cx="52" cy="38" r="3.6" fill="#20201e"/>
+    <circle cx="68" cy="38" r="3.6" fill="#20201e"/>
+    <circle cx="45" cy="48" r="4" fill="#f6c9b8" stroke="none"/>
+  </symbol>
+</svg>
+<a class="skip" href="#project-title">跳至当前项目</a>
+<header class="bar"><div class="brand"><svg class="brand-duck" aria-hidden="true"><use href="#qduck"/></svg>后端练习画板</div><span class="brand-sub">进阶项目 · 订单服务</span><a id="foundation-link" href="/course#home">返回基础课程</a></header>
+<div class="layout">
+<aside aria-label="项目文件">
+  <div class="railhead"><span class="kicker">PROJECT TRACK</span><h2>订单服务项目</h2><p id="project-progress" role="status">正在读取章节…</p><progress id="project-bar" max="1" value="0" aria-label="项目章进度"></progress></div>
+  <nav id="project-nav" aria-label="项目章节"></nav>
+  <p class="rail-foot">草稿和通过版本保存在本浏览器。每通过一章，项目就多一个可用文件。</p>
+</aside>
+<main>
+<header class="board-head"><div><p class="crumb"><span class="dot"></span>进阶项目 / 从零到部署</p><h1 id="project-title">从零搭建订单服务</h1><p id="project-desc" class="lead"></p></div></header>
+<p class="notice" id="project-notice" role="status" hidden></p>
+<div class="board">
+  <span class="tape tape-l" aria-hidden="true"></span>
+  <div class="workgrid">
+    <section class="paper brief" aria-labelledby="project-chapter">
+      <div class="pin-head"><span class="pin pin-blue"></span><h2 id="project-chapter">项目任务</h2></div>
+      <div class="pad"><p id="project-goal"></p><h3>这章练什么</h3><ul id="project-concepts"></ul><h3>示例</h3><pre id="project-example" class="schema"></pre><h3>怎样算完成</h3><ul id="project-acceptance"></ul><details><summary>卡住了？先补这几个知识点</summary><div id="project-bridge"></div></details></div>
+    </section>
+    <section class="paper codepane" aria-labelledby="project-filename">
+      <div class="pin-head"><span class="pin pin-red"></span><h2 id="project-filename">写代码</h2><span class="small right" id="project-save">草稿自动保存</span></div>
+      <div class="editwrap"><textarea id="project-editor" aria-label="当前项目文件" spellcheck="false"></textarea></div>
+      <div class="pad project-controls"><button id="project-run" class="primary" disabled>运行本章测试</button><button id="project-ref" disabled>查看参考实现</button><button id="project-reset" disabled>重置本章草稿</button></div>
+    </section>
+  </div>
+  <section class="paper project-result" aria-label="测试结果">
+    <div class="pin-head"><span class="pin pin-blue"></span><h2>测试结果</h2><span id="project-status" class="tag right" role="status">未运行</span></div>
+    <div class="pad"><p class="small" id="project-runtime">测试在当前浏览器运行，首次需要下载 Python 运行环境。</p><pre id="project-output" class="schema" aria-live="polite">完成 TODO 后，点「运行本章测试」。</pre>
+    <details id="reference-wrap" hidden><summary>参考实现 · 不会覆盖草稿</summary><pre class="schema" id="project-reference"></pre></details></div>
+  </section>
+  <section class="paper project-result" aria-label="项目组装">
+    <div class="pin-head"><span class="pin pin-red"></span><h2>组装与实测</h2></div>
+    <div class="pad"><p>下载自己的项目文件。已通过的章节导出通过当时的版本；未通过的章节导出当前草稿或带 TODO 的起始文件。浏览器判题不启动集群，真实部署和恢复验证请在你自己的 GitHub Actions 或教学集群运行。</p>
+    <div class="project-controls"><button id="project-download" disabled>下载项目 ZIP</button><button id="project-next" disabled>下一章 →</button></div></div>
+  </section>
+</div>
+</main>
+</div>
+</body></html>

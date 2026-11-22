@@ -8,7 +8,7 @@
 
   const S = {
     lessons: [], problems: [], meta: null, cap: null, cm: null, lang: 'sql',
-    result: null, cases: [], idx: 0, capTimeline: [], step: 0,
+    result: null, resultInput: null, resultIsHistory: false, cases: [], idx: 0, capTimeline: [], step: 0,
     timer: null, busy: false, seq: 0, saved: '', setting: false,
     mascotMoment: null, rollbackSeen: false, guess: {}, httpStatus: null, assistSeq: 0, cppSeq: 0,
   };
@@ -44,7 +44,7 @@
 
   let cache = {};
   try { cache = JSON.parse(localStorage.getItem(KEY + 'practice') || '{}') || {}; } catch { }
-  cache.drafts = cache.drafts || {}; cache.done = cache.done || {};
+  cache.drafts = cache.drafts || {}; cache.done = cache.done || {}; cache.skipped = cache.skipped || {};
   const write = () => { try { localStorage.setItem(KEY + 'practice', JSON.stringify(cache)); return true; } catch { return false; } };
 
   function option(el, value, label) { const o = node('option', label); o.value = value; el.add(o); }
@@ -75,10 +75,27 @@
   function mascotHide() { $('mascot').hidden = true; S.mascotMoment = null; }
 
   /* ---------- 目录与选题 ---------- */
+  const tracks = [
+    ['base', '零基础必修', '先学表、查询、事务和两笔请求怎么互相影响。无须 PostgreSQL 或 Docker。'],
+    ['pg', '业务后端 · PostgreSQL', '用真实数据库验证锁和索引，再独立写销售、酒店服务。需要 PostgreSQL。'],
+    ['cloud', '云后端 · 分布式 / 数据湖 / K8s', '先完成基础和业务后端，再练后台处理、报表和部署。按关配置 PostgreSQL、DuckDB、Docker 或 kind。'],
+    ['cpp', '数据库内核选修 · C++', '独立选修，可随时回首页切换路线。动手编译需要 C++ 工具链。'],
+  ];
+  function trackOf(l) {
+    if (l.engine?.startsWith('cpp_')) return 'cpp';
+    if (l.engine === 'cloud' || l.engine === 'k8s') return 'cloud';
+    if (l.engine?.startsWith('pg_')) return 'pg';
+    return 'base';
+  }
+  const trackItems = key => S.lessons.map((l, i) => [l, i]).filter(([l]) => trackOf(l) === key);
+  const completed = items => items.filter(([l]) => cache.done[l.id] === true).length;
+  const pending = items => items.find(([l]) => !cache.done[l.id] && !cache.skipped[l.id]);
+  const estimate = l => /^pg-build-/.test(l.id) ? '约 30–60 分钟' : (l.minutes || 4) + ' 分钟';
   function nav() {
     const nav = $('nav'); nav.replaceChildren();
     const navGroups = [];
-    S.lessons.forEach((l, i) => {
+    const key = trackOf(S.meta), items = trackItems(key);
+    items.forEach(([l, i]) => {
       const group = l.chapter || (l.mode === 'capstone' ? '综合应用' : 'SQL 基础');
       let g = navGroups.find(x => x.name === group);
       if (!g) { g = { name: group, items: [] }; navGroups.push(g); }
@@ -97,10 +114,10 @@
       nav.append(b);
       });
     });
-    const n = S.lessons.filter(l => cache.done[l.id] === true).length;
-    $('course-progress').max = S.lessons.length || 1;
+    const n = completed(items);
+    $('course-progress').max = items.length || 1;
     $('course-progress').value = n;
-    $('progress-copy').textContent = n + ' / ' + S.lessons.length + ' 关已通过';
+    $('progress-copy').textContent = n + ' / ' + items.length + ' 关已通过 · 当前路线';
   }
 
   function code() { return S.cm ? S.cm.getValue() : $('editor').value; }
@@ -111,7 +128,7 @@
     cache.drafts[draftKey()] = code();
     const ok = write();
     $('draft-note').textContent = ok ? '草稿已保存' : '仅当前页面';
-    if (S.result && S.saved !== code()) status('代码已改 · 上次结果', 'wait');
+    if (S.result && !S.resultIsHistory && S.saved !== code()) status('代码已改 · 上次结果', 'wait');
     else if (S.result) resultStatus();
   }
   function setCode(v) {
@@ -188,11 +205,11 @@
     el.replaceChildren();
     if (!S.result) { el.hidden = true; return; }
     el.hidden = false;
-    const cs = arr(S.result.cases);
+    const cs = S.cases;
     const pass = cs.filter(c => c.passed === true).length;
     const fail = cs.filter(c => c.passed === false).length;
     const skip = cs.filter(c => c.passed == null).length;
-    const unc = S.result.error ? 1 : 0;
+    const unc = outcome(S.result) === '未完成' ? 1 : 0;
     [['通过', pass, 'ok'], ['失败', fail, 'bad'], ['跳过', skip, 'wait'], ['未完成', unc, 'wait']].forEach(([label, n, tone]) => {
       const b = node('span', label + ' ' + n, 'badge');
       b.dataset.tone = n ? tone : '';
@@ -236,74 +253,119 @@
       tx.onerror = () => rej(tx.error);
     })).catch(() => []);
   }
+  const fileLabels = { schema: 'schema.sql', service: 'service.py', tests: 'tests_extra.py' };
+  const verdict = res => res?.passed ?? res?.judge?.passed;
+  function outcome(res) {
+    const passed = verdict(res);
+    return passed === true ? '通过' : passed === false ? '失败'
+      : res?.error ? '未完成' : '跳过';
+  }
   function renderHistory() {
     const wrap = $('history-list');
     if (!wrap || !S.meta) return;
     wrap.replaceChildren();
-    hlist(S.meta.id).then(recs => {
+    const lid = S.meta.id;
+    hlist(lid).then(recs => {
+      if (S.meta?.id !== lid) return;
+      wrap.replaceChildren();
       if (!recs.length) { wrap.append(node('p', '暂无提交历史。', 'small')); return; }
       recs.slice(0, 12).forEach(r => {
         const row = node('div', null, 'resp-card');
         const head = node('div', null, 'resp-head');
-        head.append(node('span', new Date(r.ts).toLocaleTimeString(), 'small'),
-                    node('span', r.passed === true ? '通过' : r.passed === false ? '失败' : r.passed == null ? '跳过' : '未完成', 'badge'),
+        const response = r.response || { cases: r.cases, error: r.error, passed: r.passed, run_id: r.run_id };
+        head.append(node('span', new Date(r.ts).toLocaleString(), 'small'),
+                    node('span', outcome(response), 'badge'),
                     node('span', 'run ' + (r.run_id || '-'), 'small'));
         row.append(head);
         const open = node('button', '打开旧结果', 'pill');
-        open.onclick = () => { S.result = { cases: r.cases, error: r.error, passed: r.passed, run_id: r.run_id }; S.cases = r.cases || []; $('result-body').hidden = false; $('results-empty').hidden = true; $('run-label').textContent = '历史 run ' + (r.run_id || '-'); status(r.passed === true ? '通过(历史)' : r.passed === false ? '失败(历史)' : '跳过(历史)', r.passed === true ? 'ok' : r.passed === false ? 'bad' : 'wait'); chooseCase(0); renderCounts(); renderDB(); };
+        open.onclick = () => {
+          ++S.seq; S.busy = false; $('run').disabled = false; showNotice();
+          showResult(response, r, true, r.http_status);
+          switchTab('results');
+        };
         const cmp = node('button', '对比代码', 'pill');
-        cmp.onclick = () => { const d = node('details'); d.append(node('summary', '旧代码 vs 当前'), node('pre', '旧:\n' + r.code + '\n\n当前:\n' + code())); row.append(d); };
+        cmp.onclick = () => {
+          const d = node('details');
+          d.open = true;
+          d.append(node('summary', '旧代码 vs 当前'));
+          const files = r.files && S.meta.build_presets;
+          const pairs = files ? Object.keys(S.meta.build_presets).filter(k => typeof r.files[k] === 'string').map(k =>
+            [fileLabels[k] || k, r.files[k], k === S.lang ? code() : (cache.drafts[lid + ':' + k] ?? arr(S.meta.build_presets[k])[0]?.code ?? '')])
+            : [[r.mode ? (r.mode === 'sql' ? 'SQL' : 'Python') : '代码', r.code, code()]];
+          for (const [label, oldCode, currentCode] of pairs) {
+            d.append(node('strong', label), node('pre', '旧：\n' + oldCode + '\n\n当前：\n' + currentCode));
+          }
+          row.append(d);
+        };
         const load = node('button', '载入旧代码(需确认)', 'pill');
-        load.onclick = () => { if (window.confirm('把这次历史代码载入编辑器？会替换当前草稿。')) { setCode(r.code); remember(); } };
+        load.onclick = () => {
+          if (!window.confirm('把这次历史代码载入编辑器？会替换本题对应草稿。')) return;
+          if (r.files && S.meta.build_presets) {
+            for (const k of Object.keys(S.meta.build_presets)) {
+              if (typeof r.files[k] === 'string') cache.drafts[lid + ':' + k] = r.files[k];
+            }
+            const ok = write(); editorMode();
+            if (!ok) showNotice('浏览器未能保存历史草稿；本页仍可编辑。');
+          } else {
+            if (r.mode && [...$('lang').options].some(o => o.value === r.mode)) {
+              S.lang = r.mode; $('lang').value = r.mode; editorMode();
+            }
+            setCode(r.code); remember();
+          }
+        };
         row.append(open, cmp, load);
         wrap.append(row);
       });
     });
   }
   function recordHistory(lid, payload, res, err) {
-    const rec = { lesson: lid, scenario: payload.scenario || '', ts: Date.now(), run_id: res && res.run_id,
-                  code: payload.code || '', files: payload.files || null,
-                  passed: err ? undefined : (res ? res.passed : undefined),
-                  error: err ? String(err.message || err) : (res && res.error) || null,
-                  cases: (res && res.cases) || [], summary: err ? '未完成' : (res && res.passed === true ? '通过' : res && res.passed === false ? '失败' : '跳过') };
-    hsave(rec).then(ok => { if (!ok) showNotice('历史存储写入失败：本次结果未保存到历史（草稿/进度不受影响）。'); });
+    const rec = { lesson: lid, scenario: payload.scenario || '', choice: payload.choice || '', mode: payload.mode,
+                  ts: Date.now(), run_id: res?.run_id, code: payload.code || '', files: payload.files || null,
+                  response: res || { error: String(err?.message || err || '未知错误') },
+                  http_status: res ? S.httpStatus : null };
+    return hsave(rec).then(ok => {
+      if (!ok && S.meta?.id === lid) showNotice('历史存储写入失败：本次结果未保存到历史（草稿/进度不受影响）。');
+    });
   }
   function showHome() {
     stop();
     $('home').hidden = false;
     $('workspace').hidden = true;
     document.querySelector('.board-head').style.display = 'none';
-    const done = S.lessons.filter(l => cache.done[l.id] === true).length;
-    const totalMin = S.lessons.reduce((a, l) => a + (l.minutes || 4), 0);
-    $('home-progress').textContent = `已通过 ${done} / ${S.lessons.length} 关 · 全程预计 ${totalMin} 分钟 · 每关 3–5 分钟一个概念`;
-    const firstUndone = S.lessons.findIndex(l => cache.done[l.id] !== true);
-    const nextIdx = firstUndone < 0 ? 0 : firstUndone;
-    $('home-start').onclick = () => select(0, true);
+    const items = trackItems('base'), next = pending(items);
+    $('home-progress').textContent = `必修已通过 ${completed(items)} / ${items.length} 关 · 全部路线共 ${S.lessons.length} 关`;
+    $('home-start').onclick = () => select(items[0]?.[1], true);
     $('home-continue').onclick = () => {
-      const li = S.lessons.findIndex(l => l.id === cache.last);
-      select(li >= 0 ? li : nextIdx, true);
+      const i = S.lessons.findIndex(l => l.id === cache.last);
+      select(i >= 0 ? i : next?.[1] ?? items[0]?.[1], true);
     };
-    $('home-next').onclick = () => select(nextIdx, true);
-    $('home-next').textContent = '推荐下一关：' + (S.lessons[nextIdx]?.title || '');
+    $('home-next').onclick = () => select(next?.[1], true);
+    $('home-next').disabled = !next;
+    $('home-next').textContent = next ? '必修下一关：' + next[0].title : '必修已完成 · 下方选路线';
     const map = $('home-map'); map.replaceChildren();
-    const groups = [];
-    S.lessons.forEach((l, i) => {
-      const ch = l.chapter || '其他';
-      let g = groups.find(x => x.ch === ch);
-      if (!g) { g = { ch, items: [] }; groups.push(g); }
-      g.items.push([l, i]);
-    });
-    groups.forEach(g => {
-      map.append(node('h3', g.ch, 'home-ch'));
-      g.items.forEach(([l, i]) => {
-        const row = node('button', null, 'home-row' + (cache.done[l.id] === true ? ' is-done' : ''));
-        row.append(node('span', cache.done[l.id] === true ? '✓' : String(i + 1).padStart(2, '0'), 'nav-num'),
+    for (const [key, title, intro] of tracks) {
+      const group = trackItems(key);
+      if (!group.length) continue;
+      const section = node('section', null, 'course-track');
+      section.append(node('h3', title + ' · ' + completed(group) + '/' + group.length, 'home-ch'),
+                     node('p', intro, 'small'));
+      const next = pending(group);
+      const start = node('button', next ? (completed(group) ? '继续这条路线' : '开始这条路线') : '复习这条路线', 'pill');
+      start.type = 'button';
+      start.onclick = () => select(next?.[1] ?? group[0][1], true);
+      section.append(start);
+      for (const [l, i] of group) {
+        const done = cache.done[l.id] === true, skipped = !done && cache.skipped[l.id];
+        const row = node('button', null, 'home-row' + (done ? ' is-done' : ''));
+        row.type = 'button';
+        row.append(node('span', done ? '✓' : String(i + 1).padStart(2, '0'), 'nav-num'),
                    node('span', l.title, 'home-title'),
-                   node('span', (l.minutes || 4) + ' 分钟', 'small'));
+                   node('span', skipped ? '可配置后重试' : estimate(l), 'small'));
         row.onclick = () => select(i, true);
-        map.append(row);
-      });
-    });
+        section.append(row);
+      }
+      map.append(section);
+    }
     try { history.replaceState(null, '', '#home'); } catch {}
   }
   function select(i, navigating = false) {
@@ -315,19 +377,24 @@
     S.meta = l;
     S.cap = l.mode === 'capstone' ? S.problems.find(p => p.id === l.problem) : null;
     const cap = l.mode === 'capstone';
-    S.lang = cap ? 'python' : (l.build_presets ? 'service' : 'sql');
+    S.lang = cap ? 'python' : (l.build_presets ? 'service' : (l.engine === 'k8s' || l.cloud_case === 'd5' ? 'yaml' : 'sql'));
     nav();
     $('workspace').hidden = false;
-    $('prev').disabled = i === 0; $('next').disabled = i === S.lessons.length - 1;
-    $('prev').onclick = () => select(i - 1, true);
-    $('next').onclick = () => select(i + 1, true);
+    const route = trackItems(trackOf(l)), pos = route.findIndex(([, idx]) => idx === i);
+    const prev = route[pos - 1], next = route.slice(pos + 1).find(([x]) => !cache.skipped[x.id] || cache.done[x.id]);
+    $('prev').disabled = !prev; $('next').disabled = false;
+    $('prev').onclick = () => select(prev?.[1], true);
+    $('next').textContent = next ? '下一题' : '回课程地图';
+    $('next').onclick = () => next ? select(next[1], true) : showHome();
     $('chapter').textContent = 'LESSON ' + String(i + 1).padStart(2, '0') + ' / ' + String(S.lessons.length).padStart(2, '0');
     $('crumb').textContent = l.chapter || (cap ? '综合应用' : 'SQL 基础');
     $('engine-badge').textContent = engineBadge(l);
     $('kind').textContent = cap ? '业务综合' : '基础练习';
     $('title').textContent = l.title;
     $('summary').textContent = txt(l.summary || S.cap?.subtitle);
-    $('minutes').textContent = '预计 ' + (l.minutes || 4) + ' 分钟 · 一个概念 · 先猜再改再运行';
+    $('minutes').textContent = '预计 ' + estimate(l) + (/^pg-build-/.test(l.id)
+      ? ' · 先读接口契约 → 建表 → 写事务 → 运行测试'
+      : ' · 先猜再改再运行');
     $('goal').textContent = txt(l.goal);
     const ex = $('example'); ex.replaceChildren();
     if (cap) {
@@ -385,7 +452,7 @@
   /* ---------- 运行与结果 ---------- */
   function clearResult() {
     stop();
-    S.result = null; S.cases = []; S.idx = 0; S.step = 0; S.capTimeline = []; S.rollbackSeen = false;
+    S.result = null; S.resultInput = null; S.resultIsHistory = false; S.cases = []; S.idx = 0; S.step = 0; S.capTimeline = []; S.rollbackSeen = false;
     $('result-body').hidden = true; $('db-body').hidden = true;
     $('results-empty').hidden = false; $('db-empty').hidden = false;
     $('results-empty').textContent = '点「运行测试」：先跑一遍起始代码看它怎么失败，再改几行跑通。';
@@ -398,14 +465,16 @@
   }
   function resultStatus() {
     if (!S.result) return;
-    const p = S.result.passed ?? S.result.judge?.passed;
-    if (p == null) {
-      const why = arr(S.result.cases)[0]?.extra?.not_measured || '跳过：依赖未配置';
-      status(why.split('。')[0], 'wait');
+    const state = outcome(S.result);
+    const suffix = S.resultIsHistory ? '（历史）' : '';
+    if (state === '未完成') { status(state + suffix, 'bad'); return; }
+    if (state === '跳过') {
+      const why = S.cases[0]?.extra?.not_measured || '跳过：依赖未配置';
+      status(why.split('。')[0] + suffix, 'wait');
       return;
     }
     const count = S.cases.filter(c => c.passed === true).length;
-    status((p === true ? '通过' : '未通过') + (S.cases.length ? ' · ' + count + '/' + S.cases.length : ''), p === true ? 'ok' : 'bad');
+    status(state + suffix + (S.cases.length ? ' · ' + count + '/' + S.cases.length : ''), state === '通过' ? 'ok' : 'bad');
   }
   function objRows(rows, columns) {
     return arr(rows).map(r => Array.isArray(r) ? Object.fromEntries(arr(columns).map((c, i) => [c, r[i]])) : r);
@@ -426,6 +495,27 @@
     items.sort((a, b) => a.seq - b.seq);
     return items;
   }
+  function showResult(res, input, isHistory, httpStatus) {
+    clearResult();
+    S.result = res; S.resultInput = input; S.resultIsHistory = isHistory;
+    if (!isHistory) predictVerdict();
+    if (S.cap) {
+      S.capTimeline = capstoneTimeline(res);
+      S.cases = arr(res.judge?.checks).map(c => ({ ...c }));
+    } else {
+      S.cases = arr(res.cases).map(c => ({ ...c, timeline: foundationTimeline(c) }));
+    }
+    resultStatus();
+    $('result-body').hidden = false; $('results-empty').hidden = true;
+    $('run-label').textContent = (isHistory ? '历史运行' : '本次运行') + (res.run_id ? ' · ' + res.run_id : '');
+    const hl = $('http-line');
+    if (httpStatus != null) {
+      hl.hidden = false;
+      hl.textContent = '课程请求 POST ' + (S.cap ? '/api/run' : '/api/course/run') + ' → HTTP ' + httpStatus + '。业务响应在回放中单独显示。';
+    }
+    renderResponses();
+    chooseCase(0);
+  }
   async function run() {
     if (!S.meta || S.busy || $('run').disabled) return;
     stop();
@@ -445,35 +535,23 @@
       }
       const res = await json(cap ? '/api/run' : '/api/course/run', payload);
       if (seq !== S.seq || S.meta.id !== lid) { recordHistory(lid, payload, res, null); return; }
-      S.result = res;
-      predictVerdict();
-      if (cap) {
-        S.capTimeline = capstoneTimeline(res);
-        S.cases = arr(res.judge?.checks).map(c => ({ ...c }));
-        if (!S.cases.length && res.error) S.cases.push({ name: '执行错误', passed: false, error: txt(res.error) });
-        if (!S.cases.length) S.cases.push({ name: '本次运行', passed: null });
-      } else {
-        S.cases = arr(res.cases).map(c => ({ ...c, timeline: foundationTimeline(c) }));
+      showResult(res, payload, false, S.httpStatus);
+      if (verdict(res) === true) {
+        cache.done[lid] = true; delete cache.skipped[lid]; write(); nav(); mascot('pass');
+      } else if (outcome(res) === '跳过') {
+        cache.skipped[lid] = true; write();
       }
-      if ((res.passed ?? res.judge?.passed) === true) { cache.done[S.meta.id] = true; write(); nav(); mascot('pass'); }
-      resultStatus();
-      $('result-body').hidden = false; $('results-empty').hidden = true;
-      $('run-label').textContent = res.run_id ? '本次运行 · ' + res.run_id : '本次运行';
-      const hl = $('http-line');
-      hl.hidden = false;
-      hl.textContent = '本页请求 POST /api/course/run → HTTP ' + S.httpStatus + '（课程服务）。回放里的「业务响应」是业务侧模拟记录，与本次请求状态不是同一层。';
-      renderResponses();
-      if (!S.cases.length) { $('case-detail').replaceChildren(node('p', txt(res.error) || '本次返回没有测试明细。', 'small')); }
-      else chooseCase(0);
       if (S.saved !== code()) status('代码已改 · 上次结果', 'wait');
-      recordHistory(lid, payload, res, null); renderCounts(); renderHistory();
+      await recordHistory(lid, payload, res, null);
+      if (seq === S.seq && S.meta.id === lid) renderHistory();
     } catch (e) {
-      try { recordHistory(lid, payload || { code: value, scenario: $('scenario').value }, null, e); } catch (he) {}
+      const input = payload || { code: value };
+      const saved = recordHistory(lid, input, null, e);
       if (seq !== S.seq || S.meta.id !== lid) return;
-      clearResult(); status('未完成', 'bad'); renderCounts();
-      $('results-empty').textContent = '本次未获得测试结果：' + e.message + '（可重试）';
-      $('results-empty').textContent = '本次未获得测试结果：' + e.message;
+      showResult({ error: e.message }, input, false, null);
       showNotice('请检查课程服务是否已启动，再运行一次。');
+      await saved;
+      if (seq === S.seq && S.meta.id === lid) renderHistory();
     } finally { if (seq === S.seq && S.meta.id === lid) { S.busy = false; $('run').disabled = false; } }
   }
   function chooseCase(i) {
@@ -486,8 +564,15 @@
       list.append(b);
     });
     const c = S.cases[i], d = $('case-detail'); d.replaceChildren();
+    if (!c) {
+      d.append(node('p', txt(S.result?.error) || '本次返回没有测试明细。', 'small'));
+      renderDB();
+      return;
+    }
     if (c.passed == null && c.extra?.not_measured) d.append(node('div', c.extra.not_measured, 'notice'));
-    d.append(node('div', '输入：' + (S.meta.build_presets ? 'schema.sql + service.py + tests_extra.py（草稿）' : code()) + (S.meta.scenarios?.length || S.cap ? ' · 场景 ' + $('scenario').value : ''), 'small'));
+    const input = S.resultInput;
+    const names = input?.files ? Object.keys(input.files).map(k => fileLabels[k] || k).join(' + ') : null;
+    d.append(node('div', '输入：' + (names ?? input?.code ?? code()) + (input?.scenario ? ' · 场景 ' + input.scenario : ''), 'small'));
     if (c.error) d.append(node('div', txt(c.error), 'error'));
     if (Object.hasOwn(c, 'expected') || Object.hasOwn(c, 'actual')) {
       const values = node('div', null, 'readout');

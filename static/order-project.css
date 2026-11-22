@@ -1,0 +1,15 @@
+.order-project .project-result { margin-top: 22px; }
+.order-project .project-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.order-project .project-controls button { margin: 0; }
+.order-project .nav-item { grid-template-columns: 24px minmax(0, 1fr); }
+.order-project .nav-item small { display: block; overflow-wrap: anywhere; color: var(--muted); }
+.order-project .schema { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; }
+.order-project .editwrap { min-height: 310px; }
+.order-project #project-editor { width: 100%; min-height: 310px; padding: 12px; border: 0; font: 14px/1.5 ui-monospace, monospace; }
+.order-project .CodeMirror { height: 360px; }
+.order-project .project-result h2, .order-project .pin-head h2 { overflow-wrap: anywhere; }
+.order-project #project-bridge a { display: inline-block; margin-right: 10px; }
+@media (max-width: 660px) {
+  .order-project .CodeMirror { height: 300px; }
+  .order-project .editwrap { min-height: 250px; }
+}

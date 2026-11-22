@@ -499,7 +499,7 @@ CLOUD_LESSONS = [
     lesson("d5", "分布式·下游不可用", "超时有限重试退避", "注入下游不可用，练超时、有限重试、退避与失败记录。", "max_attempts: 4\nbackoff_ms: 50", "改最大尝试/退避；exhaust 场景次数用尽。", "max_attempts: 4\nbackoff_ms: 50", chapter=CH_CLOUD, engine="cloud", cloud_case="d5", minutes=5, scenarios=[dict(id="recover", name="恢复", description="失败2次后恢复"), dict(id="exhaust", name="次数用尽", description="永久失败记录")]),
     lesson("l1", "数据湖·原始 vs 业务库", "各能回答什么", "保存原始 JSON/CSV，比较业务库与原始文件各能回答什么。", "", "本地目录=对象存储模拟。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="l1", minutes=5),
     lesson("l2", "数据湖·校验坏记录", "坏行单独列原因", "校验字段，坏记录单独列出并说明原因。", "", "坏行不进报表；原始=有效+拒绝。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="l2", minutes=5, scenarios=[dict(id="normal", name="含坏记录", description="正常+缺失+非法日期+非法金额"), dict(id="no-bad", name="无坏边界", description="全正常"), dict(id="all-bad", name="全坏边界", description="全坏")]),
-    lesson("l3", "数据湖·Parquet 分区", "改一条 DuckDB SQL", "有效事件按业务日期写 Parquet；改一条 DuckDB SQL 看读了哪些分区/文件。", "SELECT biz_date, SUM(net_cents) AS net_cents FROM dedup GROUP BY biz_date", "改这一条 SQL。", "SELECT biz_date, SUM(net_cents) AS net_cents FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l3", minutes=5),
+    lesson("l3", "数据湖·Parquet 分区", "改一条 DuckDB SQL", "有效事件按业务日期写 Parquet。对比全日期与只查 2026-12-08；文件清单只说明候选分区。", "SELECT biz_date, SUM(net_cents) AS net_cents FROM dedup GROUP BY biz_date", "全日期返回两天；单日场景在 GROUP BY 前加 WHERE biz_date = DATE '2026-12-08'。", "SELECT biz_date, SUM(net_cents) AS net_cents FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l3", minutes=5, scenarios=[dict(id="all", name="全日期", description="返回 12-07 和 12-08 的净额"), dict(id="date", name="单日筛选", description="只返回 2026-12-08 的净额")]),
     lesson("l4", "数据湖·重跑不重复计入", "去重+迟到+跨午夜", "加重复投递、次日迟到退款、跨午夜入住；重跑对应日期并对账。", "rn = 1", "改这一处去重条件；改成 rn>=1 会重复计入。", "rn = 1", chapter=CH_CLOUD, engine="cloud", cloud_case="l4", minutes=6),
     lesson("l5", "数据湖·改口径重建", "来源/行数/坏/重复", "改报表口径从原始重建，展示来源、输入输出行数、重复/坏行数量。", "SELECT biz_date, SUM(net_cents) AS net_cents, SUM(room_nights) AS room_nights FROM dedup GROUP BY biz_date", "净营收=下单-退款；酒店退房当天不计间夜。", "SELECT biz_date, SUM(net_cents) AS net_cents, SUM(room_nights) AS room_nights FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l5", minutes=6),
     lesson("k1", "K8s·镜像容器端口", "本机容器跑起来", "在本机用容器运行，解释镜像、容器、端口。", "", "用本地 postgres 镜像演示容器概念。", "", chapter=CH_CLOUD, engine="k8s", k8s_case="k1", minutes=5),
@@ -642,6 +642,17 @@ def _one(id, name, seed, code):
 @app.get("/course")
 def course_page():
     return FileResponse(ROOT / "static" / "course.html")
+
+
+@app.get("/course/project")
+def order_project_page():
+    return FileResponse(ROOT / "static" / "order-project.html")
+
+
+@app.get("/api/course/project")
+def order_project_data():
+    from .order_project_ui import project_bundle
+    return project_bundle()
 
 
 @app.get("/api/course")

@@ -1,0 +1,176 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "PersistentVolumeClaim",
+      "metadata": {
+        "name": "orders-data"
+      },
+      "spec": {
+        "accessModes": [
+          "ReadWriteOnce"
+        ],
+        "resources": {
+          "requests": {
+            "storage": "64Mi"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "orders"
+      },
+      "spec": {
+        "type": "ClusterIP",
+        "selector": {
+          "app": "order-lab"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8080,
+            "targetPort": "http"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "orders"
+      },
+      "spec": {
+        "replicas": 1,
+        "strategy": {
+          "type": "Recreate"
+        },
+        "selector": {
+          "matchLabels": {
+            "app": "order-lab"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "order-lab"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 10001,
+              "runAsGroup": 10001,
+              "fsGroup": 10001,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "containers": [
+              {
+                "name": "orders",
+                "image": "python:3.12-slim",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "python",
+                  "/app/api.py"
+                ],
+                "ports": [
+                  {
+                    "name": "http",
+                    "containerPort": 8080
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "ORDER_DB",
+                    "value": "/data/orders.sqlite"
+                  },
+                  {
+                    "name": "ORDER_HOST",
+                    "value": "0.0.0.0"
+                  },
+                  {
+                    "name": "PYTHONDONTWRITEBYTECODE",
+                    "value": "1"
+                  },
+                  {
+                    "name": "PYTHONUNBUFFERED",
+                    "value": "1"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "30m",
+                    "memory": "32Mi"
+                  },
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "128Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/live",
+                    "port": "http"
+                  },
+                  "periodSeconds": 2,
+                  "timeoutSeconds": 1,
+                  "failureThreshold": 3
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/live",
+                    "port": "http"
+                  },
+                  "periodSeconds": 2,
+                  "timeoutSeconds": 1,
+                  "failureThreshold": 3,
+                  "initialDelaySeconds": 4
+                },
+                "volumeMounts": [
+                  {
+                    "name": "source",
+                    "mountPath": "/app",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "orders-data",
+                    "mountPath": "/data"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "source",
+                "configMap": {
+                  "name": "orders-code"
+                }
+              },
+              {
+                "name": "orders-data",
+                "emptyDir": {}
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

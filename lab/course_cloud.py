@@ -11,10 +11,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-import duckdb
-import psycopg
+try:
+    import duckdb
+except ModuleNotFoundError as exc:
+    if exc.name != 'duckdb':
+        raise
+    duckdb = None
 
 from . import pglab
+from .pglab import psycopg
 from .course_engines import case, step, ENGINES
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -185,6 +190,9 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
         return [case(lesson['title'], None, error=None, steps=[],
                      extra=dict(not_measured=f'跳过：{why}。配置后重跑；不计失败也不计通过。'))]
     cc = lesson.get('cloud_case', 'd2')
+    if duckdb is None and (cc.startswith('l') or cc == 'f1'):
+        return [case(lesson['title'], None, steps=[],
+                     extra=dict(not_measured='跳过：未安装 DuckDB。安装后重跑；不计失败也不计通过。'))]
     schema = pglab.new_schema()
     lake = run_dir / 'lake'
     c = pglab.connect(schema, autocommit=True)
@@ -197,7 +205,10 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
     code = (code or '').strip()
     guard = code if cc == 'd2' and code else DEFAULT_GUARD
     dedup_cond = code if cc in ('l4', 'f1') and code else DEFAULT_DEDUP
-    report_sql = code if cc in ('l3', 'l5') and code.upper().startswith('SELECT') else DEFAULT_REPORT
+    day = '2026-12-08'
+    day_report = DEFAULT_REPORT.replace(' GROUP BY', f" WHERE biz_date = DATE '{day}' GROUP BY")
+    report_sql = ((code or (day_report if scenario == 'date' else DEFAULT_REPORT)) if cc == 'l3'
+                  else code if cc == 'l5' and code.upper().startswith('SELECT') else DEFAULT_REPORT)
 
     def snap(label):
         t = {}
@@ -357,19 +368,28 @@ def _run_cloud(lesson, code, run_dir, choice='', scenario=''):
         return [case('校验字段·坏记录列原因', passed, expected=f'原始{raw_n}=有效{valid_n}+拒绝{bad_n} 且坏不进报表',
                      actual=f'原始{raw_n} 有效{valid_n} 坏{bad_n} 等式={raw_n == valid_n + bad_n} 坏进报表={bad_in_report} rerr={rerr}', steps=steps, extra=extra)]
     if cc == 'l3':
-        con.execute(f"CREATE VIEW pq AS SELECT * FROM read_parquet('{(Path(lake)/'parquet').as_posix()}/**/*.parquet', hive_partitioning=true)")
-        rows, cols, err = _report(con, report_sql, source='pq')
-        m = re.search(r"biz_date\s*=\s*'([^']+)'", report_sql)
-        hit = [f for f in info['files'] if m.group(1) in f] if m else info['files']
-        steps.append(step('你的 DuckDB SQL 真读 Parquet', 'read', {'报表': rows or [], '命中文件': hit}, report_sql, err, '学生'))
-        base_rows, _, _ = _report(con, DEFAULT_REPORT)
+        parquet_glob = (Path(lake) / 'parquet').as_posix() + '/**/*.parquet'
+        con.execute(f"CREATE VIEW pq AS SELECT * FROM read_parquet('{parquet_glob}', hive_partitioning=true)")
+        shape_ok = bool(re.match(r'^SELECT\b', report_sql, re.I) and re.search(r'\bFROM\s+dedup\b', report_sql, re.I))
+        if shape_ok:
+            rows, cols, err = _report(con, report_sql, source='pq')
+        else:
+            rows, cols, err = None, None, '请从 dedup 使用 SELECT 查询 Parquet 数据。'
+        # Each exercise has a fixed expectation independent of the student's query.
+        base_rows, _, base_err = _report(con, day_report if scenario == 'date' else DEFAULT_REPORT)
         base_net = {str(r['biz_date']): r['net_cents'] for r in (base_rows or [])}
         got_net = {str(r.get('biz_date')): r.get('net_cents') for r in (rows or [])}
-        values_ok = (got_net == base_net)
-        extra.update(hit_files=hit, columns=cols, base_net=base_net)
-        passed = err is None and len(hit) >= 1 and cols and 'biz_date' in cols and 'net_cents' in cols and values_ok
-        return [case('改一条 DuckDB SQL 看读了哪些分区', passed, expected='查询成功且命中分区文件≥1 含 biz_date/net_cents 列',
-                     actual=f'err={err} 命中{len(hit)} 列{cols} 值符合={values_ok}', error=err or (None if values_ok else '净额与基准不符（如全0）'), steps=steps, extra=extra)]
+        values_ok = base_err is None and got_net == base_net and len(rows or []) == len(base_net)
+        columns_ok = bool(cols and 'biz_date' in cols and 'net_cents' in cols)
+        candidates = sorted(f for f in info['files'] if scenario != 'date' or f'biz_date={day}/' in f)
+        note = '文件为本题目标日期对应的候选分区，不代表实际扫描次数。'
+        steps.append(step('学生 SQL 查询 Parquet 视图', 'read', {'报表': rows or [], '目标分区（候选）': [{'file': f} for f in candidates]}, report_sql, err or note, '学生'))
+        extra.update(candidate_files=candidates, columns=cols, base_net=base_net, partition_evidence=note)
+        passed = err is None and columns_ok and values_ok
+        why = err or ('结果需要 biz_date 和 net_cents 两列。' if not columns_ok else
+                      None if values_ok else '日期范围、逐日净额或返回行数与本场景基准不符。')
+        return [case('DuckDB SQL · 一天或全部业务日期', passed, expected=base_net,
+                     actual=got_net if err is None else None, error=why, steps=steps, extra=extra)]
     if cc == 'l4':
         con2, info2 = _lake_clean(lake, dedup_cond, subdir='parquet2')
         rb1 = duckdb.connect(); rb1.execute("SET memory_limit='256MB'")

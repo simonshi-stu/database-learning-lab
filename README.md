@@ -1,26 +1,30 @@
 # 数据库学习实验室 | Database Learning Lab
 
-从零学习 **SQL、事务、并发和索引**：45 关交互画板，每关 3–5 分钟只教一个概念，
+从零学习 **SQL、事务、并发和索引**：63 关交互画板，基础关每关练一个概念，
 按「一句白话 → 一个小例子 → 先猜结果 → 改一处并运行 → 看真实回放」推进。
 配 **真实 PostgreSQL 实验**（隔离级别、行锁、死锁、执行计划）、**销售库存与酒店预订项目实战**
 （从引导题到独立补齐 schema 与服务），以及 **C++ 数据库内核选修**（存储页、缓冲池、B+ 树、查询执行、锁管理）。
 
 ![课程知识地图](docs/knowledge-map.png)
 
-- 课程入口：`http://127.0.0.1:8022/course`（首页 `#home` 为知识地图，含进度与推荐下一关）
+- 课程入口：`http://127.0.0.1:8022/course`（首页 `#home` 提供各路线进度与推荐；初次使用从零基础必修开始）
+- 独立项目练习：`http://127.0.0.1:8022/course/project`（从目标到可复现交付）
 - 配套原实验室：`http://127.0.0.1:8021/`（销售 / 酒店两道综合题的完整事件回放）
 - 仅本机运行，不连接生产数据库；所有练习使用一次性合成数据。
 
-## 学习路线（6 章 · 45 关）
+## 学习路线（63 关）
 
 | 章 | 内容 | 关数 |
 | --- | --- | --- |
 | 第 0 章 · 空库到第一条记录 | 文件/连接/表 → 字段与类型 → 主键外键 → SELECT/WHERE/JOIN | 8 |
 | 第 1 章 · 事务与订单 | 查库存 → 条件扣减 → 提交/回滚 → 影响行数 → 同键重试 → 完整下单 | 7 |
-| 第 2 章 · 四种容易混淆的情况 | 普通等待 / 锁忙 / 死锁 / 进程退出（提交前 vs 提交后） | 4 |
-| 路线 A · 业务后端（PostgreSQL） | 连接建表 → 双连接隔离 → 行锁/锁超时/死锁同例对照 → 统一锁顺序 → 执行计划与索引；销售引导 5 关 + 酒店引导 5 关 + 两个无提示综合 + 两个开写综合 | 19 |
+| 第 2 章 · 四种容易混淆的情况 | 普通等待 / 锁忙 / 进程退出（提交前 vs 提交后；死锁归 PostgreSQL 路线） | 3 |
+| 路线 A · 业务后端（PostgreSQL） | 连接建表 → 双连接隔离 → 行锁/锁超时/死锁同例对照 → 统一锁顺序 → 执行计划与索引；销售引导 5 关 + 酒店引导 5 关 + 两个无提示综合 + 两个开写综合 | 20 |
 | 路线 B · 数据库内核（C++ 教学） | 存储页 → 缓冲池 → B+ 树 → Scan/Filter/Project → 锁管理 | 5 |
 | 章末 · 综合应用 | 销售两笔抢最后一件、酒店连续两晚同一间（完整事件回放） | 2 |
+| 路线 C · 云后端 | 分布式入门、数据湖、Docker / Kubernetes、结课挑战 | 18 |
+
+建议：先完成零基础必修，再选 PostgreSQL 业务后端；云路线建议在此之后学习。C++ 是独立选修，无须先学它。配置缺失时，以页面实测 / 跳过标记为准。知道某关缺依赖后，推荐会先略过它，仍可手动打开重试。
 
 每关含正常 / 边界 / 典型错误三类用例；结果区显示「输入 → 预期 → 实际 → 失败原因」；
 回放支持播放、单步、上一帧/下一帧、重置、跳到提交/回滚，并标明当前是 SQLite、真实 PostgreSQL 还是教学 C++。
@@ -46,7 +50,8 @@
      ```
    - 连接串走环境变量 `COURSE_PG_DSN`（默认 `host=127.0.0.1 port=55433 dbname=course_lab user=course`）。
      未安装/未启动时，路线 A 关卡会明确标「示意 / 未实测」，不影响其余章节。
-4. 可选 · C++ 内核选修（路线 B）：`.venv\Scripts\python.exe -m pip install ziglang`
+4. 可选 · 数据湖（路线 C）：`.venv\Scripts\python.exe -m pip install duckdb`，并配置上面的 PostgreSQL 实验库。Kubernetes 练习另需 Docker 和 kind。
+5. 可选 · C++ 内核选修（路线 B）：`.venv\Scripts\python.exe -m pip install ziglang`
    （或本机已有 g++ / MSVC），然后 `scripts\cpp_build.cmd` 构建教学引擎。
    未构建时路线 B 标「未实测」；网页不执行任意 C++，学生草稿用 `scripts\cpp_run.cmd` 本地编译后读回放。
 
@@ -62,7 +67,7 @@ start.cmd          :: 原实验室 http://127.0.0.1:8021/
 **只跑入门**（只需 fastapi + uvicorn，不装 PostgreSQL、不构建 C++）：
 
 ```bat
-.venv\Scripts\python.exe -X utf8 scriptserify_course.py 1,2,3   :: SQLite 基础 / 事务订单 / 四种混淆
+.venv\Scripts\python.exe -X utf8 scripts\verify_course.py 1,2,3   :: SQLite 基础 / 事务订单 / 四种混淆
 ```
 
 此时路线 A / B 的关卡在页面上显示 **「跳过：未配置 PostgreSQL／未构建 C++」**，
@@ -71,7 +76,7 @@ start.cmd          :: 原实验室 http://127.0.0.1:8021/
 **跑全量**（先按上文装好 PostgreSQL 与 C++ 编译器）：
 
 ```bat
-.venv\Scripts\python.exe -X utf8 scriptserify_course.py all     :: 课程 66 组 HTTP 用例（页面同款路由）
+.venv\Scripts\python.exe -X utf8 scripts\verify_course.py all     :: 课程 66 组 HTTP 用例（页面同款路由）
 .venv\Scripts\python.exe -X utf8 scriptserify.py                :: 原实验室 13 组回归
 .venv\Scripts\python.exe -X utf8 scripts\smoke.py                 :: 两服务 + PG + C++ 冒烟
 ```

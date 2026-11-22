@@ -314,3 +314,8 @@ footer a { color: var(--blue); font-weight: 700; }
   .chapter-arrows { margin-left: auto; flex-shrink: 0; }
   .board-head > div:first-child { min-width: 0; flex: 1 1 100%; }
 }
+
+/* Course map: each pathway has its own progress and starting point. */
+.course-track { margin-block: 1.25rem; }
+.course-track > .small { margin: .35rem 0 .55rem; line-height: 1.5; }
+.course-track > .pill { margin-bottom: .4rem; }
