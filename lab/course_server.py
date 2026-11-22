@@ -493,13 +493,13 @@ CLOUD_LESSONS = [
     lesson("c1", "单机起点·发一次请求", "跑起来并查表确认", "发一次下单请求，查表确认库存与订单。", "SELECT sku, qty FROM products;", "先跑通再讲名词。", "SELECT sku, qty FROM products;", chapter=CH_CLOUD, engine="cloud", cloud_case="c1", minutes=4),
     lesson("c2", "单机起点·退款改了哪些数据", "对照前后快照", "取消/退款后看订单状态、库存、退款行与退款事件的变化。", "SELECT * FROM orders;", "对照退款前后快照。", "SELECT * FROM orders;", chapter=CH_CLOUD, engine="cloud", cloud_case="c2", minutes=4),
     lesson("d1", "分布式·拆成两个进程", "API 与 worker 分离", "把下单和后台处理拆成两个本地进程，看 worker 独立 pid 消费。", "", "单机多进程≠跨机器高可用。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d1", minutes=5),
-    lesson("d2", "分布式·提交后丢回复", "同键重试只留一单", "数据库已提交但回复丢失，用相同请求键重试：只留一单只扣一次。", "SELECT request_key FROM orders WHERE request_key=%s", "改这一处幂等检查；删掉它会重复建单。", "SELECT request_key FROM orders WHERE request_key=%s", chapter=CH_CLOUD, engine="cloud", cloud_case="d2", minutes=5),
+    lesson("d2", "分布式·提交后丢回复", "同键重试只留一单", "数据库已提交但回复丢失，用相同请求键重试：只留一单只扣一次。", "SELECT request_key FROM orders WHERE request_key=%s", "改这一处幂等检查；唯一约束挡住重复写入，但重试无法返回原结果。", "SELECT request_key FROM orders WHERE request_key=%s", chapter=CH_CLOUD, engine="cloud", cloud_case="d2", minutes=5),
     lesson("d3", "分布式·Outbox 补发", "同事务落业务+事件", "业务行与待发送事件同事务落库；worker 停了再启动也能补发。", "", "Outbox 保证不丢事件。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d3", minutes=5),
     lesson("d4", "分布式·重复事件只写一次结果", "唯一键幂等消费", "消费者写结果后确认前退出；重启收重复事件，唯一键保证结果只写一次（消息可重复）。", "", "消息可重复，结果不可重复。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d4", minutes=5),
-    lesson("d5", "分布式·下游不可用", "超时有限重试退避", "注入下游不可用，练超时、有限重试、退避与失败记录。", "", "失败要记录而非静默丢。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d5", minutes=5),
+    lesson("d5", "分布式·下游不可用", "超时有限重试退避", "注入下游不可用，练超时、有限重试、退避与失败记录。", "max_attempts: 4\nbackoff_ms: 50", "改最大尝试/退避；exhaust 场景次数用尽。", "max_attempts: 4\nbackoff_ms: 50", chapter=CH_CLOUD, engine="cloud", cloud_case="d5", minutes=5, scenarios=[dict(id="recover", name="恢复", description="失败2次后恢复"), dict(id="exhaust", name="次数用尽", description="永久失败记录")]),
     lesson("l1", "数据湖·原始 vs 业务库", "各能回答什么", "保存原始 JSON/CSV，比较业务库与原始文件各能回答什么。", "", "本地目录=对象存储模拟。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="l1", minutes=5),
-    lesson("l2", "数据湖·校验坏记录", "坏行单独列原因", "校验字段，坏记录单独列出并说明原因。", "", "坏行不進报表。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="l2", minutes=5),
-    lesson("l3", "数据湖·Parquet 分区", "改一条 DuckDB SQL", "有效事件按业务日期写 Parquet；改一条 DuckDB SQL 看读了哪些分区/文件。", "SELECT biz_date, SUM(net_cents) FROM dedup GROUP BY biz_date", "改这一条 SQL。", "SELECT biz_date, SUM(net_cents) FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l3", minutes=5),
+    lesson("l2", "数据湖·校验坏记录", "坏行单独列原因", "校验字段，坏记录单独列出并说明原因。", "", "坏行不进报表；原始=有效+拒绝。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="l2", minutes=5, scenarios=[dict(id="normal", name="含坏记录", description="正常+缺失+非法日期+非法金额"), dict(id="no-bad", name="无坏边界", description="全正常"), dict(id="all-bad", name="全坏边界", description="全坏")]),
+    lesson("l3", "数据湖·Parquet 分区", "改一条 DuckDB SQL", "有效事件按业务日期写 Parquet；改一条 DuckDB SQL 看读了哪些分区/文件。", "SELECT biz_date, SUM(net_cents) AS net_cents FROM dedup GROUP BY biz_date", "改这一条 SQL。", "SELECT biz_date, SUM(net_cents) AS net_cents FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l3", minutes=5),
     lesson("l4", "数据湖·重跑不重复计入", "去重+迟到+跨午夜", "加重复投递、次日迟到退款、跨午夜入住；重跑对应日期并对账。", "rn = 1", "改这一处去重条件；改成 rn>=1 会重复计入。", "rn = 1", chapter=CH_CLOUD, engine="cloud", cloud_case="l4", minutes=6),
     lesson("l5", "数据湖·改口径重建", "来源/行数/坏/重复", "改报表口径从原始重建，展示来源、输入输出行数、重复/坏行数量。", "SELECT biz_date, SUM(net_cents) AS net_cents, SUM(room_nights) AS room_nights FROM dedup GROUP BY biz_date", "净营收=下单-退款；酒店退房当天不计间夜。", "SELECT biz_date, SUM(net_cents) AS net_cents, SUM(room_nights) AS room_nights FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l5", minutes=6),
     lesson("k1", "K8s·镜像容器端口", "本机容器跑起来", "在本机用容器运行，解释镜像、容器、端口。", "", "用本地 postgres 镜像演示容器概念。", "", chapter=CH_CLOUD, engine="k8s", k8s_case="k1", minutes=5),
@@ -510,6 +510,18 @@ CLOUD_LESSONS = [
     lesson("f1", "结课挑战·同一订单贯穿", "超时→重试→重复→报表→换Pod", "从半成品补齐去重/清洗/探针；沿同一订单 ID 回放全链路。", "rn = 1", "补齐去重条件。", "rn = 1", chapter=CH_CLOUD, engine="cloud", cloud_case="f1", minutes=10),
 ]
 LESSONS = LESSONS + CLOUD_LESSONS
+
+
+CLOUD_SCHEMA = "products(sku PK, qty) / orders(request_key PK, sku, qty, amount_cents, status, biz_date) / outbox(event_id PK, request_key, kind, payload, published) / consumer_results(event_id PK, net_cents, room_nights, biz_date) / failures / refunds / rooms / room_nights / bookings / booking_nights"
+for _it in LESSONS:
+    if _it.get("engine") == "cloud":
+        _it["schema"] = CLOUD_SCHEMA
+        _cc = _it.get("cloud_case")
+        _it["example"] = {"name": "本关示例", "columns": ["request_key", "event_id", "net_cents", "biz_date"],
+                          "rows": [["ord-1", 1, 9900, "2026-12-07"], ["ord-2", 2, 5000, "2026-12-08"]]} if _cc not in ("k1",) else _it.get("example")
+    if _it.get("engine") == "k8s":
+        _it["schema"] = "Deployment(replicas, selector, template) / Service / readinessProbe / livenessProbe（YAML）"
+        _it["example"] = {"name": "Pod/副本", "columns": ["pod", "uid", "ready"], "rows": [["web-abc", "uid-old", "True"], ["web-def", "uid-new", "True"]]}
 
 BY_ID = {item["id"]: item for item in LESSONS}
 FIXTURES = {

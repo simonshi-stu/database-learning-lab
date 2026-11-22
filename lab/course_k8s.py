@@ -46,7 +46,7 @@ def _run_k8s(lesson, code, run_dir, choice='', scenario=''):
             return [case('容器运行同一API', None, error=None, steps=[],
                          extra=dict(not_measured='跳过：本地无可用镜像且 registry 不可达。' + INSTALL))]
         name = 'lab-cloud-k1-' + uuid.uuid4().hex[:6]
-        run = subprocess.run(['docker', 'run', '-d', '--name', name, '-p', '55434:5432',
+        run = subprocess.run(['docker', 'run', '-d', '--name', name, '-p', '127.0.0.1:55434:5432',
                               '-e', 'POSTGRES_PASSWORD=lab', img], capture_output=True, timeout=60)
         cid = run.stdout.decode().strip()[:12]
         steps.append(step('docker run（镜像→容器）', 'committed', {}, None,

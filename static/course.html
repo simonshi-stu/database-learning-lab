@@ -144,6 +144,7 @@
       </div>
       <section id="pane-results" class="pane" role="tabpanel">
         <div id="results-empty" class="empty">点「运行测试」：先跑一遍起始代码看它怎么失败，再改几行跑通。</div>
+        <div id="result-counts" class="pills" hidden></div>
         <div id="result-body" hidden>
           <div id="run-label" class="small"></div>
           <div id="http-line" class="small" hidden></div>
@@ -151,6 +152,7 @@
           <div id="case-list" class="pills" role="group" aria-label="选择测试用例"></div>
           <div id="case-detail"></div>
           <div id="case-extra"></div>
+          <details id="history-wrap" class="fold-section"><summary>提交历史（本浏览器 IndexedDB）</summary><div class="fold-body" id="history-list"></div></details>
           <div id="response-wrap" hidden>
             <h3>每笔请求：外层 HTTP 与业务返回分开看</h3>
             <div id="response-list"></div>

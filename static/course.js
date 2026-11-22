@@ -172,6 +172,102 @@
     el.textContent = (ok ? '猜对了 ✓ ' : '猜错了 × ') + '你的猜测：' + p.options[g] + ' · 概念答案：' + p.options[p.answer] + '（实际数据看画板）';
   }
 
+  /* ===== 引擎徽章 / 四态结果栏 / IndexedDB 提交历史 ===== */
+  function engineBadge(l) {
+    const e = l.engine || '';
+    if (l.mode === 'capstone') return 'SQLite · 原实验室运行器 · POST /api/run';
+    if (e === 'cloud') return 'PostgreSQL + DuckDB/本地数据湖 · POST /api/course/run';
+    if (e === 'k8s') return 'Docker/Kubernetes（实测或示意）· POST /api/course/run';
+    if (e.startsWith('pg_')) return '真实 PostgreSQL · POST /api/course/run';
+    if (e.startsWith('cpp_')) return '教学 C++ · 预编译回放/本地编译';
+    return 'SQLite · POST /api/course/run';
+  }
+  function renderCounts() {
+    const el = $('result-counts');
+    if (!el) return;
+    el.replaceChildren();
+    if (!S.result) { el.hidden = true; return; }
+    el.hidden = false;
+    const cs = arr(S.result.cases);
+    const pass = cs.filter(c => c.passed === true).length;
+    const fail = cs.filter(c => c.passed === false).length;
+    const skip = cs.filter(c => c.passed == null).length;
+    const unc = S.result.error ? 1 : 0;
+    [['通过', pass, 'ok'], ['失败', fail, 'bad'], ['跳过', skip, 'wait'], ['未完成', unc, 'wait']].forEach(([label, n, tone]) => {
+      const b = node('span', label + ' ' + n, 'badge');
+      b.dataset.tone = n ? tone : '';
+      el.append(b);
+    });
+    if (S.result.error) {
+      el.append(node('span', '实际错误：' + String(S.result.error).slice(0, 80) + '（可重试）', 'small'));
+    }
+    cs.forEach(c => {
+      if (c.passed === false && c.error) el.append(node('div', '× ' + (c.name || '') + '：' + String(c.error).slice(0, 90), 'small'));
+    });
+  }
+  /* IndexedDB 历史 */
+  const HDB = { db: null };
+  function hopen() {
+    return new Promise((res, rej) => {
+      if (HDB.db) return res(HDB.db);
+      const rq = indexedDB.open('course-history', 1);
+      rq.onupgradeneeded = () => { rq.result.createObjectStore('runs', { keyPath: 'id', autoIncrement: true }); };
+      rq.onsuccess = () => { HDB.db = rq.result; res(HDB.db); };
+      rq.onerror = () => rej(rq.error);
+    });
+  }
+  function hsave(rec) {
+    return hopen().then(db => new Promise((res, rej) => {
+      const tx = db.transaction('runs', 'readwrite');
+      tx.objectStore('runs').add(rec);
+      tx.oncomplete = () => res(true);
+      tx.onerror = () => rej(tx.error);
+    })).catch(() => false);
+  }
+  function hlist(lesson) {
+    return hopen().then(db => new Promise((res, rej) => {
+      const out = [];
+      const tx = db.transaction('runs', 'readonly');
+      tx.objectStore('runs').openCursor().onsuccess = e => {
+        const c = e.target.result;
+        if (c) { if (c.value.lesson === lesson) out.push(c.value); c.continue(); }
+        else res(out.sort((a, b) => b.ts - a.ts));
+      };
+      tx.onerror = () => rej(tx.error);
+    })).catch(() => []);
+  }
+  function renderHistory() {
+    const wrap = $('history-list');
+    if (!wrap || !S.meta) return;
+    wrap.replaceChildren();
+    hlist(S.meta.id).then(recs => {
+      if (!recs.length) { wrap.append(node('p', '暂无提交历史。', 'small')); return; }
+      recs.slice(0, 12).forEach(r => {
+        const row = node('div', null, 'resp-card');
+        const head = node('div', null, 'resp-head');
+        head.append(node('span', new Date(r.ts).toLocaleTimeString(), 'small'),
+                    node('span', r.passed === true ? '通过' : r.passed === false ? '失败' : r.passed == null ? '跳过' : '未完成', 'badge'),
+                    node('span', 'run ' + (r.run_id || '-'), 'small'));
+        row.append(head);
+        const open = node('button', '打开旧结果', 'pill');
+        open.onclick = () => { S.result = { cases: r.cases, error: r.error, passed: r.passed, run_id: r.run_id }; S.cases = r.cases || []; chooseCase(0); renderCounts(); };
+        const cmp = node('button', '对比代码', 'pill');
+        cmp.onclick = () => { const d = node('details'); d.append(node('summary', '旧代码 vs 当前'), node('pre', '旧:\n' + r.code + '\n\n当前:\n' + code())); row.append(d); };
+        const load = node('button', '载入旧代码(需确认)', 'pill');
+        load.onclick = () => { if (window.confirm('把这次历史代码载入编辑器？会替换当前草稿。')) { setCode(r.code); remember(); } };
+        row.append(open, cmp, load);
+        wrap.append(row);
+      });
+    });
+  }
+  function recordHistory(lid, payload, res, err) {
+    const rec = { lesson: lid, scenario: payload.scenario || '', ts: Date.now(), run_id: res && res.run_id,
+                  code: payload.code || '', files: payload.files || null,
+                  passed: err ? undefined : (res ? res.passed : undefined),
+                  error: err ? String(err.message || err) : (res && res.error) || null,
+                  cases: (res && res.cases) || [], summary: err ? '未完成' : (res && res.passed === true ? '通过' : res && res.passed === false ? '失败' : '跳过') };
+    hsave(rec).then(ok => { if (!ok) showNotice('历史存储写入失败：本次结果未保存到历史（草稿/进度不受影响）。'); });
+  }
   function showHome() {
     stop();
     $('home').hidden = false;
@@ -227,7 +323,7 @@
     $('next').onclick = () => select(i + 1, true);
     $('chapter').textContent = 'LESSON ' + String(i + 1).padStart(2, '0') + ' / ' + String(S.lessons.length).padStart(2, '0');
     $('crumb').textContent = l.chapter || (cap ? '综合应用' : 'SQL 基础');
-    $('engine-badge').textContent = cap ? 'SQLite · 原实验室运行器 · POST /api/run' : (l.engine || '').startsWith('pg_') ? '真实 PostgreSQL · POST /api/course/run' : (l.engine || '').startsWith('cpp_') ? '教学 C++ · 预编译回放 / 本地编译' : 'SQLite · POST /api/course/run';
+    $('engine-badge').textContent = engineBadge(l);
     $('kind').textContent = cap ? '业务综合' : '基础练习';
     $('title').textContent = l.title;
     $('summary').textContent = txt(l.summary || S.cap?.subtitle);
@@ -262,6 +358,7 @@
     const lang = $('lang'); lang.replaceChildren();
     if (cap) option(lang, 'python', 'Python');
     if (l.build_presets) Object.keys(l.build_presets).forEach(k => option(lang, k, { schema: 'schema.sql', service: 'service.py', tests: 'tests_extra.py' }[k] || k));
+    else if ((l.engine === 'k8s') || (l.cloud_case === 'd5')) option(lang, 'yaml', 'YAML');
     else option(lang, 'sql', 'SQL');
     lang.value = S.lang; lang.disabled = !cap && !l.build_presets;
     const sc = $('scenario'); sc.replaceChildren();
@@ -270,6 +367,7 @@
     chooseScenario();
     editorMode();
     renderAssist();
+    renderHistory(); renderCounts();
     $('run').disabled = cap && !S.cap;
     $('cpp-local').hidden = l.engine !== 'cpp_locks';
     showNotice(cap && !S.cap ? '未能读取原版综合题数据。可用右上角「原版实验室」继续；刷新课程页可重试。' : '');
@@ -334,7 +432,7 @@
     const seq = ++S.seq, lid = S.meta.id, value = code(), cap = S.meta.mode === 'capstone';
     S.busy = true; clearResult(); mascotHide(); S.saved = value;
     $('run').disabled = true; status('运行中…', 'wait');
-    $('results-empty').textContent = '正在本机 SQLite 执行，请稍候。';
+    $('results-empty').textContent = '正在 ' + engineBadge(S.meta) + ' 执行，请稍候。';
     showNotice();
     try {
       const payload = cap ? { problem: S.meta.problem, mode: S.lang, scenario: $('scenario').value, code: value } : { lesson_id: S.meta.id, code: S.meta.build_presets ? '' : value, choice: $('choice').value, scenario: $('scenario').value };
@@ -345,7 +443,7 @@
         }
       }
       const res = await json(cap ? '/api/run' : '/api/course/run', payload);
-      if (seq !== S.seq || S.meta.id !== lid) return;
+      if (seq !== S.seq || S.meta.id !== lid) { recordHistory(lid, payload, res, null); return; }
       S.result = res;
       predictVerdict();
       if (cap) {
@@ -367,15 +465,17 @@
       if (!S.cases.length) { $('case-detail').replaceChildren(node('p', txt(res.error) || '本次返回没有测试明细。', 'small')); }
       else chooseCase(0);
       if (S.saved !== code()) status('代码已改 · 上次结果', 'wait');
+      recordHistory(lid, payload, res, null); renderCounts(); renderHistory();
     } catch (e) {
+      recordHistory(lid, payload, null, e);
       if (seq !== S.seq || S.meta.id !== lid) return;
-      clearResult(); status('未完成', 'bad');
+      clearResult(); status('未完成', 'bad'); renderCounts();
       $('results-empty').textContent = '本次未获得测试结果：' + e.message;
       showNotice('请检查课程服务是否已启动，再运行一次。');
     } finally { if (seq === S.seq && S.meta.id === lid) { S.busy = false; $('run').disabled = false; } }
   }
   function chooseCase(i) {
-    stop(); S.idx = i; S.step = 0;
+    stop(); S.idx = i; S.step = 0; renderCounts();
     const list = $('case-list'); list.replaceChildren();
     S.cases.forEach((c, j) => {
       const b = node('button', (c.passed === true ? '✓ ' : c.passed === false ? '× ' : '⊘ ') + (c.name || '用例 ' + (j + 1)), 'pill');
