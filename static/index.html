@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>后端运行实验室</title>
+<link rel="stylesheet" href="/static/vendor/codemirror.min.css">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header>
+  <div class="brand">后端运行实验室 <span class="sub">本地 · SQLite · 真实轨迹回放</span></div>
+  <nav id="problem-tabs"></nav>
+  <div class="header-actions">
+    <span id="run-status" class="run-status"></span>
+    <button id="reset-btn" class="ghost" title="删除所有本地运行记录（临时数据库）">重置实验数据</button>
+  </div>
+</header>
+
+<main>
+  <section id="left" class="panel">
+    <h2 id="p-title"></h2>
+    <p id="p-subtitle" class="subtitle"></p>
+    <div class="block">
+      <h3>题目</h3>
+      <div id="p-statement" class="statement"></div>
+    </div>
+    <div class="block">
+      <h3>场景</h3>
+      <select id="scenario-select" name="scenario"></select>
+      <p id="scenario-desc" class="muted"></p>
+    </div>
+    <div class="block">
+      <h3>初始数据</h3>
+      <p id="p-initial" class="muted"></p>
+    </div>
+    <details class="block" open>
+      <summary><h3>提示</h3></summary>
+      <ol id="p-hints" class="hints"></ol>
+    </details>
+    <details class="block">
+      <summary><h3>来源与教学简化</h3></summary>
+      <div id="p-source"></div>
+    </details>
+  </section>
+
+  <section id="center" class="panel">
+    <div class="editor-toolbar">
+      <div class="mode-toggle">
+        <button id="mode-python" class="toggle active">受限 Python</button>
+        <button id="mode-sql" class="toggle">受限 SQL</button>
+      </div>
+      <select id="preset-select" name="preset" title="载入预置代码"></select>
+      <button id="run-btn" class="primary">运行 ▶</button>
+    </div>
+    <p id="sql-help" class="muted hidden"></p>
+    <textarea id="editor"></textarea>
+    <div id="judge-panel" class="hidden">
+      <h3>判题结果 <span id="judge-summary"></span></h3>
+      <table class="checks"><thead><tr><th>检查</th><th>期望</th><th>实际</th><th>结果</th></tr></thead>
+        <tbody id="judge-checks"></tbody></table>
+      <div id="judge-notes"></div>
+    </div>
+    <div id="error-panel" class="hidden"></div>
+  </section>
+
+  <section id="right" class="panel">
+    <h3>接口响应与前端显示</h3>
+    <div id="responses"><p class="muted">运行后这里显示每笔请求的 HTTP 响应体和页面实际显示的文字。</p></div>
+    <h3>回放时间轴 <span class="muted" id="timeline-count"></span></h3>
+    <div class="replay-controls">
+      <button id="rp-start" title="回到开头">⏮</button>
+      <button id="rp-prev" title="上一步">◀</button>
+      <button id="rp-play" title="播放/暂停">▶ 播放</button>
+      <button id="rp-next" title="下一步">▶▏</button>
+      <button id="rp-commit" title="跳到第一次提交">跳到提交</button>
+      <button id="rp-rollback" title="跳到第一次回滚">跳到回滚</button>
+      <input type="range" name="replay-position" id="rp-slider" min="0" max="0" value="0">
+    </div>
+    <div class="legend">
+      <span class="lg read">读取</span><span class="lg write">写入</span>
+      <span class="lg revoked">撤销</span><span class="lg unobserved">未观测</span>
+      <span class="lg illustrative">教学示意</span>
+    </div>
+    <div id="timeline"><p class="muted">运行后这里显示 run_id 串联的真实轨迹：输入 → 校验 → 事务 → SQL → 影响行数 → 提交/回滚 → 响应 → 前端显示。</p></div>
+  </section>
+</main>
+
+<section id="bottom" class="panel">
+  <div class="bottom-toolbar">
+    <div class="mode-toggle">
+      <button id="view-replay" class="toggle active">回放状态</button>
+      <button id="view-diff" class="toggle">运行前后对比</button>
+    </div>
+    <span id="visibility-badge" class="badge"></span>
+    <span id="state-label" class="muted"></span>
+    <span class="muted run-id" id="run-id-label"></span>
+  </div>
+  <div id="revoked-box" class="hidden"></div>
+  <div id="db-state"><p class="muted">运行后这里显示数据库表内容；回放时高亮被读取、改动和撤销的行。</p></div>
+</section>
+
+<footer>
+  仅本机 127.0.0.1 · 每次运行使用独立临时 SQLite 数据库 · 用户代码在独立子进程中经 AST 白名单受限执行（25 秒超时）· 原仓库只读快照位于 refs/
+</footer>
+
+<script src="/static/vendor/codemirror.min.js"></script>
+<script src="/static/vendor/python.min.js"></script>
+<script src="/static/vendor/sql.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

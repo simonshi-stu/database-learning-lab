@@ -1,0 +1,31 @@
+# 本地环境与运行产物（不公开）
+.venv/
+venv/
+tmp/
+runs/
+bin/
+__pycache__/
+*.pyc
+*.log
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+pgcourse/
+*.tar.gz
+*.zip
+
+# 原项目只读快照（不公开，见 README 来源说明）
+refs/
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 环境配置与密钥
+.env
+*.pem
+*.key
+credentials*
