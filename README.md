@@ -57,15 +57,28 @@ start-course.cmd   :: 课程 http://127.0.0.1:8022/course
 start.cmd          :: 原实验室 http://127.0.0.1:8021/
 ```
 
-## 测试
+## 测试：只跑入门 vs 跑全量
+
+**只跑入门**（只需 fastapi + uvicorn，不装 PostgreSQL、不构建 C++）：
 
 ```bat
-.venv\Scripts\python.exe -X utf8 scripts\verify_course.py all   :: 课程 66 组 HTTP 用例（页面同款路由）
-.venv\Scripts\python.exe -X utf8 scripts\verify.py              :: 原实验室 13 组回归
-.venv\Scripts\python.exe -X utf8 scripts\smoke.py               :: 两服务 + PG + C++ 冒烟
+.venv\Scripts\python.exe -X utf8 scriptserify_course.py 1,2,3   :: SQLite 基础 / 事务订单 / 四种混淆
 ```
 
-环境变量：`COURSE_BASE` / `ORIG_BASE` 改测试目标地址；`COURSE_PG_DSN` 改 PostgreSQL 连接。
+此时路线 A / B 的关卡在页面上显示 **「跳过：未配置 PostgreSQL／未构建 C++」**，
+不计失败也不计通过——那是依赖没装，不是你写错了。配置好依赖后重跑同一关即可正常判题。
+
+**跑全量**（先按上文装好 PostgreSQL 与 C++ 编译器）：
+
+```bat
+.venv\Scripts\python.exe -X utf8 scriptserify_course.py all     :: 课程 66 组 HTTP 用例（页面同款路由）
+.venv\Scripts\python.exe -X utf8 scriptserify.py                :: 原实验室 13 组回归
+.venv\Scripts\python.exe -X utf8 scripts\smoke.py                 :: 两服务 + PG + C++ 冒烟
+```
+
+环境变量：`COURSE_BASE` / `ORIG_BASE` 改测试目标地址；`COURSE_PG_DSN` 改 PostgreSQL 连接；
+`COURSE_SKIP_PG=1` / `COURSE_SKIP_CPP=1` 可强制模拟「未配置」以检查跳过显示；
+`verify_course.py skip` 专门验证跳过语义（需对着带 SKIP 环境变量的服务跑）。
 报告写入 `runs/`（本地运行产物，不入库）。
 
 ## 实测与未实测的边界

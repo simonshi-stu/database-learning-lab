@@ -16,12 +16,14 @@ def dsn():
 
 
 def available():
+    if os.environ.get('COURSE_SKIP_PG'):
+        return False, '未配置 PostgreSQL（COURSE_SKIP_PG=1）'
     try:
         c = psycopg.connect(dsn(), autocommit=True)
         c.close()
         return True, 'PostgreSQL 可达'
     except Exception as exc:
-        return False, f'{type(exc).__name__}: {exc}'
+        return False, f'未配置 PostgreSQL（{type(exc).__name__}: {str(exc).splitlines()[0]}）'
 
 
 def connect(schema=None, autocommit=False, **kw):

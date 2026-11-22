@@ -20,7 +20,7 @@ def _unavailable(why, title):
     return [case(title, None, expected='真实 PostgreSQL 观测', actual='未实测',
                  error=None, steps=[step('环境检查', 'illustrative', {}, None,
                                          f'示意 / 未实测（{why}）', '系统')],
-                 extra=dict(not_measured=f'示意 / 未实测（{why}）。复现：启动本项目 PG 集群后重跑。'))]
+                 extra=dict(not_measured=f'跳过：{why}。配置后重跑；不计失败也不计通过。'))]
 
 
 def _pg_ddl(lesson, code, run_dir, choice="", scenario=""):

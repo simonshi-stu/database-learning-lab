@@ -192,6 +192,7 @@ def db_facts(res):
 
 def main():
     want = sys.argv[1] if len(sys.argv) > 1 else 'all'
+    wants = set(want.split(','))
     try:
         with urllib.request.urlopen(BASE + '/api/course', timeout=5) as r:
             assert r.status == 200
@@ -200,10 +201,15 @@ def main():
         sys.exit(2)
     report, bad = [], 0
     for spec in CASES:
-        if want != 'all' and str(spec['batch']) != want:
+        if want == 'skip':
+            if spec['lesson'] not in ('pg-build-sales', 'pg-guide-sales-single', 'pg-final-hotel', 'cpp-page', 'cpp-locks'):
+                continue
+        elif want != 'all' and str(spec['batch']) not in wants:
             continue
         rg, rw = run_case(spec, spec['good']), run_case(spec, spec['wrong'])
-        if spec.get('unmeasured'):
+        if want == 'skip':
+            ok = rg['passed'] is None and str(rg['cases'][0]['extra'].get('not_measured', '')).startswith('跳过')
+        elif spec.get('unmeasured'):
             ok = rg['passed'] is None and '未实测' in str(rg['cases'][0]['extra'].get('not_measured', ''))
         elif spec.get('both_pass'):
             ok = rg['passed'] is True and rw['passed'] is True

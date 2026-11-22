@@ -301,7 +301,11 @@
   function resultStatus() {
     if (!S.result) return;
     const p = S.result.passed ?? S.result.judge?.passed;
-    if (p == null) { status('已运行 · 示意 / 未实测', 'wait'); return; }
+    if (p == null) {
+      const why = arr(S.result.cases)[0]?.extra?.not_measured || '跳过：依赖未配置';
+      status(why.split('。')[0], 'wait');
+      return;
+    }
     const count = S.cases.filter(c => c.passed === true).length;
     status((p === true ? '通过' : '未通过') + (S.cases.length ? ' · ' + count + '/' + S.cases.length : ''), p === true ? 'ok' : 'bad');
   }
@@ -374,12 +378,13 @@
     stop(); S.idx = i; S.step = 0;
     const list = $('case-list'); list.replaceChildren();
     S.cases.forEach((c, j) => {
-      const b = node('button', (c.passed === true ? '✓ ' : c.passed === false ? '× ' : '') + (c.name || '用例 ' + (j + 1)), 'pill');
+      const b = node('button', (c.passed === true ? '✓ ' : c.passed === false ? '× ' : '⊘ ') + (c.name || '用例 ' + (j + 1)), 'pill');
       b.setAttribute('aria-pressed', String(j === i));
       b.onclick = () => chooseCase(j);
       list.append(b);
     });
     const c = S.cases[i], d = $('case-detail'); d.replaceChildren();
+    if (c.passed == null && c.extra?.not_measured) d.append(node('div', c.extra.not_measured, 'notice'));
     d.append(node('div', '输入：' + (S.meta.build_presets ? 'schema.sql + service.py + tests_extra.py（草稿）' : code()) + (S.meta.scenarios?.length || S.cap ? ' · 场景 ' + $('scenario').value : ''), 'small'));
     if (c.error) d.append(node('div', txt(c.error), 'error'));
     if (Object.hasOwn(c, 'expected') || Object.hasOwn(c, 'actual')) {

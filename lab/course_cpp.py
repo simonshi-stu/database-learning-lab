@@ -13,8 +13,10 @@ BIN = os.path.join(ROOT, 'bin', 'teach.exe')
 
 
 def _run_binary(module, scenario, value, run_dir):
+    if os.environ.get('COURSE_SKIP_CPP'):
+        return None, '未构建 C++（COURSE_SKIP_CPP=1）'
     if not os.path.exists(BIN):
-        return None, '教学二进制未构建：运行 scripts\\cpp_build.cmd 后重跑。'
+        return None, '未构建 C++（运行 scripts\\cpp_build.cmd 后重跑）'
     proc = subprocess.run([BIN, module, scenario, value, str(run_dir)],
                           cwd=str(run_dir), capture_output=True, timeout=20)
     events = []
@@ -51,7 +53,7 @@ def _cpp_page(lesson, code, run_dir, choice='', scenario=''):
     events, err = _run_binary('page', scenario, value, run_dir)
     if err:
         return [case('存储页 · ' + scenario, None, error=None, steps=[],
-                     extra=dict(not_measured='示意 / 未实测（' + err + '）'))]
+                     extra=dict(not_measured='跳过：' + err + '。配置后重跑；不计失败也不计通过。'))]
     ins = next((e for e in events if e['op'] == 'insert'), {})
     reopen = next((e for e in events if e['op'] == 'reopen_read'), {})
     missing = next((e for e in events if e['op'] == 'read_missing'), None)
@@ -75,7 +77,7 @@ def _cpp_buffer(lesson, code, run_dir, choice='', scenario=''):
     events, err = _run_binary('buffer', scenario, 'unpin' if 'unpin' in (code or '') else 'pin', run_dir)
     if err:
         return [case('缓冲池 · ' + scenario, None, error=None, steps=[],
-                     extra=dict(not_measured='示意 / 未实测（' + err + '）'))]
+                     extra=dict(not_measured='跳过：' + err + '。配置后重跑；不计失败也不计通过。'))]
     ops = [e['op'] for e in events]
     pinned_cmd = 'unpin' not in (code or '')
     if scenario == 'cap1':
@@ -100,7 +102,7 @@ def _cpp_btree(lesson, code, run_dir, choice='', scenario=''):
     events, err = _run_binary('btree', scenario, str(key), run_dir)
     if err:
         return [case('B+ 树 · ' + scenario, None, error=None, steps=[],
-                     extra=dict(not_measured='示意 / 未实测（' + err + '）'))]
+                     extra=dict(not_measured='跳过：' + err + '。配置后重跑；不计失败也不计通过。'))]
     ops = [e['op'] for e in events]
     search = next((e for e in events if e['op'] == 'search'), None)
     scan = next((e for e in events if e['op'] == 'range_scan'), None)
@@ -130,7 +132,7 @@ def _cpp_exec(lesson, code, run_dir, choice='', scenario=''):
     events, err = _run_binary('exec', scenario, str(threshold), run_dir)
     if err:
         return [case('查询执行 · ' + scenario, None, error=None, steps=[],
-                     extra=dict(not_measured='示意 / 未实测（' + err + '）'))]
+                     extra=dict(not_measured='跳过：' + err + '。配置后重跑；不计失败也不计通过。'))]
     filt = next((e for e in events if e['op'] == 'Filter'), {})
     proj = next((e for e in events if e['op'] == 'Project'), {})
     scan = next((e for e in events if e['op'] == 'Scan'), {})
@@ -155,7 +157,7 @@ def _cpp_locks(lesson, code, run_dir, choice='', scenario=''):
     events, err = _run_binary('locks', scenario, '', run_dir)
     if err:
         return [case('并发控制 · ' + scenario, None, error=None, steps=[],
-                     extra=dict(not_measured='示意 / 未实测（' + err + '）'))]
+                     extra=dict(not_measured='跳过：' + err + '。配置后重跑；不计失败也不计通过。'))]
     ops = [e['op'] for e in events]
     end = next((e for e in events if e['op'] == 'end'), {})
     if scenario == 'conflict':

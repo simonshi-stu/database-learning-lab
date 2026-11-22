@@ -482,21 +482,26 @@ ENGINES.update({
 })
 
 
+def _verdict(cases):
+    judged = [c['passed'] for c in cases if c['passed'] is not None]
+    return all(judged) if judged else None
+
+
 def run(lesson, code, choice='', scenario='', files=None):
     engine = lesson.get('engine')
     if engine in ('pg_build_sales', 'pg_build_hotel', 'pg_guide'):
         fn = ENGINES[engine]
         rd = new_run_dir()
         cases = fn(lesson, code, rd, choice, scenario, files)
-        return dict(run_id=rd.name, passed=all(c['passed'] for c in cases), cases=cases)
+        return dict(run_id=rd.name, passed=_verdict(cases), cases=cases)
     if engine == 'choice':
         rd = new_run_dir()
         cases = _txn(lesson, code, rd, 'rollback' if choice == 'rollback' else 'commit')
-        return dict(run_id=rd.name, passed=all(c['passed'] for c in cases), cases=cases)
+        return dict(run_id=rd.name, passed=_verdict(cases), cases=cases)
     if engine == 'order':
         rd = new_run_dir()
         cases = _order(lesson, code, rd, choice, scenario or 'success')
-        return dict(run_id=rd.name, passed=all(c['passed'] for c in cases), cases=cases)
+        return dict(run_id=rd.name, passed=_verdict(cases), cases=cases)
     fn = ENGINES.get(engine)
     if fn is None:
         raise ValueError('unknown engine: ' + str(engine))
