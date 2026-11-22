@@ -10,12 +10,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .server import ROOT, app
-from . import course_engines, course_pg, course_build, course_cpp  # noqa: F401  注册全部引擎
+from . import course_engines, course_pg, course_build, course_cpp, course_cloud, course_k8s  # noqa: F401  注册全部引擎
 
 
 def lesson(id, title, summary, goal, starter="", hint="", solution="", problem=None,
            chapter="SQL 基础", engine=None, predict=None, principle="", example=None,
-           scenarios=None, choices=None, txn_mode=None, contract='', build_presets=None, minutes=4, guide_kind=None, guide_stage=None):
+           scenarios=None, choices=None, txn_mode=None, contract='', build_presets=None, minutes=4, guide_kind=None, guide_stage=None, cloud_case=None, k8s_case=None):
     return dict(id=id, title=title, summary=summary, goal=goal,
                 schema="inventory(sku TEXT, qty INTEGER)" if not problem else "",
                 starter=starter, hint=hint, solution=solution,
@@ -23,7 +23,8 @@ def lesson(id, title, summary, goal, starter="", hint="", solution="", problem=N
                 chapter=chapter, engine=engine, predict=predict, principle=principle,
                 example=example, scenarios=scenarios or [], choices=choices or [],
                 txn_mode=txn_mode, contract=contract, build_presets=build_presets,
-                minutes=minutes, guide_kind=guide_kind, guide_stage=guide_stage)
+                minutes=minutes, guide_kind=guide_kind, guide_stage=guide_stage,
+                cloud_case=cloud_case, k8s_case=k8s_case)
 
 
 CH0 = "第 0 章 · 空库到第一条记录"
@@ -486,6 +487,30 @@ LESSONS = [
            "对照拒订、写入后回滚、提交后退出三种情况。检查真实房晚和订单记录。",
            problem="hotel-two-nights", chapter=CH_END),
 ]
+
+CH_CLOUD = "路线 C · 云后端实战"
+CLOUD_LESSONS = [
+    lesson("c1", "单机起点·发一次请求", "跑起来并查表确认", "发一次下单请求，查表确认库存与订单。", "SELECT sku, qty FROM products;", "先跑通再讲名词。", "SELECT sku, qty FROM products;", chapter=CH_CLOUD, engine="cloud", cloud_case="c1", minutes=4),
+    lesson("c2", "单机起点·退款改了哪些数据", "对照前后快照", "取消/退款后看订单状态、库存、退款行与退款事件的变化。", "SELECT * FROM orders;", "对照退款前后快照。", "SELECT * FROM orders;", chapter=CH_CLOUD, engine="cloud", cloud_case="c2", minutes=4),
+    lesson("d1", "分布式·拆成两个进程", "API 与 worker 分离", "把下单和后台处理拆成两个本地进程，看 worker 独立 pid 消费。", "", "单机多进程≠跨机器高可用。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d1", minutes=5),
+    lesson("d2", "分布式·提交后丢回复", "同键重试只留一单", "数据库已提交但回复丢失，用相同请求键重试：只留一单只扣一次。", "SELECT request_key FROM orders WHERE request_key=%s", "改这一处幂等检查；删掉它会重复建单。", "SELECT request_key FROM orders WHERE request_key=%s", chapter=CH_CLOUD, engine="cloud", cloud_case="d2", minutes=5),
+    lesson("d3", "分布式·Outbox 补发", "同事务落业务+事件", "业务行与待发送事件同事务落库；worker 停了再启动也能补发。", "", "Outbox 保证不丢事件。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d3", minutes=5),
+    lesson("d4", "分布式·重复事件只写一次结果", "唯一键幂等消费", "消费者写结果后确认前退出；重启收重复事件，唯一键保证结果只写一次（消息可重复）。", "", "消息可重复，结果不可重复。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d4", minutes=5),
+    lesson("d5", "分布式·下游不可用", "超时有限重试退避", "注入下游不可用，练超时、有限重试、退避与失败记录。", "", "失败要记录而非静默丢。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="d5", minutes=5),
+    lesson("l1", "数据湖·原始 vs 业务库", "各能回答什么", "保存原始 JSON/CSV，比较业务库与原始文件各能回答什么。", "", "本地目录=对象存储模拟。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="l1", minutes=5),
+    lesson("l2", "数据湖·校验坏记录", "坏行单独列原因", "校验字段，坏记录单独列出并说明原因。", "", "坏行不進报表。", "", chapter=CH_CLOUD, engine="cloud", cloud_case="l2", minutes=5),
+    lesson("l3", "数据湖·Parquet 分区", "改一条 DuckDB SQL", "有效事件按业务日期写 Parquet；改一条 DuckDB SQL 看读了哪些分区/文件。", "SELECT biz_date, SUM(net_cents) FROM dedup GROUP BY biz_date", "改这一条 SQL。", "SELECT biz_date, SUM(net_cents) FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l3", minutes=5),
+    lesson("l4", "数据湖·重跑不重复计入", "去重+迟到+跨午夜", "加重复投递、次日迟到退款、跨午夜入住；重跑对应日期并对账。", "rn = 1", "改这一处去重条件；改成 rn>=1 会重复计入。", "rn = 1", chapter=CH_CLOUD, engine="cloud", cloud_case="l4", minutes=6),
+    lesson("l5", "数据湖·改口径重建", "来源/行数/坏/重复", "改报表口径从原始重建，展示来源、输入输出行数、重复/坏行数量。", "SELECT biz_date, SUM(net_cents) AS net_cents, SUM(room_nights) AS room_nights FROM dedup GROUP BY biz_date", "净营收=下单-退款；酒店退房当天不计间夜。", "SELECT biz_date, SUM(net_cents) AS net_cents, SUM(room_nights) AS room_nights FROM dedup GROUP BY biz_date", chapter=CH_CLOUD, engine="cloud", cloud_case="l5", minutes=6),
+    lesson("k1", "K8s·镜像容器端口", "本机容器跑起来", "在本机用容器运行，解释镜像、容器、端口。", "", "用本地 postgres 镜像演示容器概念。", "", chapter=CH_CLOUD, engine="k8s", k8s_case="k1", minutes=5),
+    lesson("k2", "K8s·kind 集群与副本", "Pod/Deployment/Service", "用 kind 起隔离集群，扩到两个副本。", "replicas: 2", "改副本数。", "replicas: 2", chapter=CH_CLOUD, engine="k8s", k8s_case="k2", minutes=6),
+    lesson("k3", "K8s·删Pod看补副本", "新UID+成功失败数", "删一个 Pod 观察新 UID，持续请求展示成功/失败数，不预设零中断。", "replicas: 2", "改副本/探针。", "replicas: 2", chapter=CH_CLOUD, engine="k8s", k8s_case="k3", minutes=6),
+    lesson("k4", "K8s·readiness/liveness", "移出流量 vs 重启", "readiness 不通过被移出 endpoints；liveness 失败触发重启。", "readinessProbe: {}\nlivenessProbe: {}", "加/删探针。", "readinessProbe: {}\nlivenessProbe: {}", chapter=CH_CLOUD, engine="k8s", k8s_case="k4", minutes=6),
+    lesson("k5", "K8s·坏配置回滚", "rollout卡住→回滚", "上线坏配置观察 rollout 卡住、手动回滚，再查订单仍在。", "image: wrong", "改回正确镜像即回滚。", "image: postgres:17-alpine", chapter=CH_CLOUD, engine="k8s", k8s_case="k5", minutes=6),
+    lesson("f1", "结课挑战·同一订单贯穿", "超时→重试→重复→报表→换Pod", "从半成品补齐去重/清洗/探针；沿同一订单 ID 回放全链路。", "rn = 1", "补齐去重条件。", "rn = 1", chapter=CH_CLOUD, engine="cloud", cloud_case="f1", minutes=10),
+]
+LESSONS = LESSONS + CLOUD_LESSONS
+
 BY_ID = {item["id"]: item for item in LESSONS}
 FIXTURES = {
     "select": [("乱序录入", [("B", 0), ("A", 3)]), ("空表", []), ("只剩一行", [("C", 1)])],

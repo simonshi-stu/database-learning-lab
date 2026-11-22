@@ -587,6 +587,25 @@
     box.append(t); card.append(box);
     return card;
   }
+  function renderSwimlane(all) {
+    const el = $('swimlane');
+    const eng = S.meta && S.meta.engine;
+    if (eng !== 'cloud' && eng !== 'k8s') { el.hidden = true; el.replaceChildren(); return; }
+    el.hidden = false; el.replaceChildren();
+    const lanes = {};
+    all.forEach((e, i) => { const a = e.actor || '系统'; (lanes[a] = lanes[a] || []).push([e, i]); });
+    Object.entries(lanes).forEach(([actor, items]) => {
+      const lane = node('div', null, 'lane');
+      lane.append(node('div', actor, 'lane-head'));
+      items.forEach(([e, i]) => {
+        const b = node('button', '#' + (i + 1) + ' ' + (e.label || '').slice(0, 26), 'pill' + (i === S.step ? ' current' : ''));
+        b.title = (e.note || '') + (e.sql ? ' | ' + e.sql : '');
+        b.onclick = () => { stop(); S.step = i; renderDB(); };
+        lane.append(b);
+      });
+      el.append(lane);
+    });
+  }
   function renderDB() {
     const all = steps();
     const info = stateAt(S.step);
@@ -606,6 +625,7 @@
     $('step-ms').textContent = entry.ms != null ? '+' + entry.ms + 'ms' : '';
     $('step-note').textContent = txt(entry.note || (snap && snap !== entry ? snap.label : ''));
     if (phase === 'rolled_back' && !S.rollbackSeen) { S.rollbackSeen = true; mascot('rollback'); }
+    renderSwimlane(all);
 
     const jumps = $('actor-jumps'); jumps.replaceChildren();
     if (S.cap) {

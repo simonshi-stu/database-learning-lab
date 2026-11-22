@@ -77,6 +77,15 @@
         </div>
       </div>
       <div id="home-map"></div>
+      <details id="wizard" class="fold-section" open>
+        <summary>启动向导：API / 进程 / 端口 / 数据库各做什么</summary>
+        <div class="fold-body why-cards">
+          <div class="why-card w1"><h4>API（FastAPI）</h4><p>接收 HTTP 请求、校验、调用业务函数、返回 JSON。它不存数据，只转发与编排。</p></div>
+          <div class="why-card w2"><h4>进程</h4><p>运行中的程序实例。API 一个进程、后台 worker 另一个进程；各自独立崩溃互不拖累。</p></div>
+          <div class="why-card w3"><h4>端口</h4><p>本机上的门牌号：8022 课程、8021 原实验室、55433 PostgreSQL。客户端靠 host:port 找到服务。</p></div>
+          <div class="why-card w1"><h4>数据库（PostgreSQL）</h4><p>唯一持久真相：业务行+Outbox 事件同事务落库；API/worker 重启数据仍在。</p></div>
+        </div>
+      </details>
     </section>
     <div id="workspace" class="board" hidden>
       <span class="tape tape-l" aria-hidden="true"></span>
@@ -149,6 +158,7 @@
         </div>
       </section>
       <section id="pane-replay" class="pane" role="tabpanel" hidden>
+        <div id="swimlane" class="chain lanes" hidden></div>
         <div id="db-empty" class="empty">运行后切到这里：命中的行会亮起来，写入先标「待提交」，提交看旧值 → 新值，回滚看临时行被收回。</div>
         <div id="db-body" hidden>
           <div class="transport">

@@ -153,6 +153,13 @@ CASES = [
     dict(lesson='pg-final-hotel', batch=6, good='reference', wrong='starter',
          files_good=dict(schema=cb.REF_SCHEMA_HOTEL, service=cb.REF_SERVICE_HOTEL, tests=''),
          files_wrong=dict(schema=cb.STARTER_SCHEMA_HOTEL, service=cb.STARTER_SERVICE_HOTEL, tests='')),
+    dict(lesson='d2', batch=7, good='SELECT request_key FROM orders WHERE request_key=%s',
+         wrong='SELECT 1 WHERE false'),
+    dict(lesson='l4', batch=7, good='rn = 1', wrong='rn >= 1'),
+    dict(lesson='d3', batch=7, good='', wrong='', both_pass=True),
+    dict(lesson='d4', batch=7, good='', wrong='', both_pass=True),
+    dict(lesson='k1', batch=7, good='', wrong='', both_pass=True),
+    dict(lesson='k3', batch=7, good='', wrong='', unmeasured=True),
 ]
 
 
