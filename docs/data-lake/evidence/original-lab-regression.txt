@@ -1,0 +1,15 @@
+OK   销售参考解 | passed=True (期望 True) |
+OK   销售错误解①先查后写 | passed=False (期望 False) | 另一笔为 409 INSUFFICIENT_STOCK, 同键重试返回原订单
+OK   销售错误解②漏幂等 | passed=False (期望 False) | 同键重试返回原订单, 重试过程无写入 SQL
+OK   销售起始代码 | passed=False (期望 False) | 最终库存为 0, 成功订单恰 1 笔且 PLACED, 有效 SALE 流水恰 1 条且 delta=-1, 订单明细恰 1 行, 两笔主响应恰一笔 200, 另一笔为 409 INSUFFICIENT_STOCK, 同键重试返回原订单
+OK   销售参考解·锁忙场景 | passed=True (期望 True) |
+OK   销售参考SQL | passed=True (期望 True) |
+OK   销售错误SQL | passed=False (期望 False) | 另一笔为 409 INSUFFICIENT_STOCK
+OK   酒店参考解 | passed=True (期望 True) |
+OK   酒店错误解①逐晚挑房 | passed=False (期望 False) | 成功对照：两晚同一间房
+OK   酒店错误解②拒订不落库 | passed=False (期望 False) | A：落库 1 条 REJECTED 预订 + 1 条拒订事件, A：同键重试不新增记录且 replayed=True
+OK   酒店起始代码 | passed=False (期望 False) | 成功对照：响应 BOOKED, 成功对照：两晚同一间房, 成功对照：active 占用与预订一致且离店日不占房, A：响应 REJECTED（HTTP 200 也要看响应体）, A：落库 1 条 REJECTED 预订 + 1 条拒订事件, A：同键重试不新增记录且 replayed=True, B：响应 ROLLED_BACK（HTTP 200 也要看响应体）, B：事务内曾写入第一晚（临时可见）, B：发生真实回滚, C：订单与两晚占用都保留, C：同键重试找回原订单，不重复占用, 辅助探针：409 AUXILIARY_UNAVAILABLE 且零占用
+OK   酒店参考SQL | passed=True (期望 True) |
+OK   酒店错误SQL | passed=False (期望 False) | 辅助探针：409 AUXILIARY_UNAVAILABLE 且零占用
+
+13/13 个用例符合预期；报告：runs/verify-report.json

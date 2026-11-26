@@ -1,0 +1,6 @@
+{
+  "passed": true,
+  "failed": 0,
+  "report": "runs/lake-verify.json",
+  "evidence_dir": "runs/lake-acceptance/20261126-183336"
+}

@@ -216,6 +216,18 @@ h3 { font-size: .85rem; margin: 14px 0 6px; }
 .resp-card details { margin-top: 5px; }
 .resp-card summary { font-size: .74rem; color: var(--mut); cursor: pointer; }
 .resp-card pre { font: .74rem/1.6 ui-monospace, Consolas, monospace; background: #f6f0e0; border-radius: 8px; padding: 6px 8px; margin: 4px 0 0; max-height: 150px; overflow: auto; }
+.lake-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.lake-flow .actor { background: var(--amber-pale); color: #7a5210; }
+.prereq-wrap { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 6px 0 10px; font-size: .76rem; color: var(--mut); }
+.prereq-wrap button { border: 1px solid #d8ccb2; background: #fffaf0; color: #6f562d; border-radius: 999px; padding: 3px 8px; cursor: pointer; }
+.prereq-wrap button:hover { background: var(--amber-pale); }
+.lake-stages { margin: 4px 0 8px; padding: 8px; border: 1px dashed #d8ccb2; border-radius: 10px; background: #fffaf0; }
+.lake-stage-buttons { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.lake-stage-buttons button { border: 1px solid #d8ccb2; background: #fffdf7; color: #6f562d; border-radius: 999px; padding: 4px 9px; cursor: pointer; font-size: .76rem; }
+.lake-stage-buttons button[aria-pressed="true"] { background: #6f562d; border-color: #6f562d; color: #fffaf0; }
+.lake-stage-buttons button.is-done::after { content: " ✓"; }
+.lake-stage-detail { font-size: .76rem; line-height: 1.55; color: #5f513b; }
+.lake-stage-detail strong { color: #3f3527; }
 
 /* 回放画板 */
 .transport { margin-bottom: 8px; }

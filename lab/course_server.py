@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .server import ROOT, app
-from . import course_engines, course_pg, course_build, course_cpp, course_cloud, course_k8s  # noqa: F401  注册全部引擎
+from . import course_engines, course_pg, course_build, course_cpp, course_cloud, course_k8s, course_lake, course_lake_data  # noqa: F401  注册全部引擎
 
 
 def lesson(id, title, summary, goal, starter="", hint="", solution="", problem=None,
@@ -509,7 +509,7 @@ CLOUD_LESSONS = [
     lesson("k5", "K8s·坏配置回滚", "rollout卡住→回滚", "上线坏配置观察 rollout 卡住、手动回滚，再查订单仍在。", "image: wrong", "改回正确镜像即回滚。", "image: postgres:17-alpine", chapter=CH_CLOUD, engine="k8s", k8s_case="k5", minutes=6),
     lesson("f1", "结课挑战·同一订单贯穿", "超时→重试→重复→报表→换Pod", "从半成品补齐去重/清洗/探针；沿同一订单 ID 回放全链路。", "rn = 1", "补齐去重条件。", "rn = 1", chapter=CH_CLOUD, engine="cloud", cloud_case="f1", minutes=10),
 ]
-LESSONS = LESSONS + CLOUD_LESSONS
+LESSONS = LESSONS + CLOUD_LESSONS + course_lake_data.ADVANCED_LESSONS
 
 
 CLOUD_SCHEMA = "products(sku PK, qty) / orders(request_key PK, sku, qty, amount_cents, status, biz_date) / outbox(event_id PK, request_key, kind, payload, published) / consumer_results(event_id PK, net_cents, room_nights, biz_date) / failures / refunds / rooms / room_nights / bookings / booking_nights"
@@ -536,10 +536,11 @@ FIXTURES = {
 
 class CourseRun(BaseModel):
     lesson_id: str = Field(max_length=30)
-    code: str = Field(max_length=1600)
+    code: str = Field(max_length=20000)
     choice: str = Field(default="", max_length=20)
     scenario: str = Field(default="", max_length=40)
     files: dict = Field(default_factory=dict)
+    stage: int = Field(default=0, ge=0, le=5)
 
 
 def _one(id, name, seed, code):
@@ -661,7 +662,7 @@ def run_foundation(body: CourseRun):
             raise HTTPException(501, "engine not implemented yet")
         if sum(len(v) for v in body.files.values()) > 40000:
             raise HTTPException(413, "files too large")
-        return course_engines.run(item, body.code, body.choice, body.scenario, body.files)
+        return course_engines.run(item, body.code, body.choice, body.scenario, body.files, body.stage)
     if id not in FIXTURES:
         raise HTTPException(404, "no such SQL lesson")
     cases = [_one(id, name, seed, body.code) for name, seed in FIXTURES[id]]

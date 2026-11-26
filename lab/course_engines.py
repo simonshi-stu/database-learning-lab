@@ -487,7 +487,7 @@ def _verdict(cases):
     return all(judged) if judged else None
 
 
-def run(lesson, code, choice='', scenario='', files=None):
+def run(lesson, code, choice='', scenario='', files=None, stage=None):
     engine = lesson.get('engine')
     if engine in ('pg_build_sales', 'pg_build_hotel', 'pg_guide'):
         fn = ENGINES[engine]
@@ -506,7 +506,7 @@ def run(lesson, code, choice='', scenario='', files=None):
     if fn is None:
         raise ValueError('unknown engine: ' + str(engine))
     run_dir = new_run_dir()
-    cases = fn(lesson, code, run_dir, choice, scenario)
+    cases = fn(lesson, code, run_dir, choice, scenario, files, stage) if engine == 'lake' else fn(lesson, code, run_dir, choice, scenario)
     judged = [c['passed'] for c in cases if c['passed'] is not None]
     passed = all(judged) if judged else None
     return dict(run_id=run_dir.name, passed=passed, cases=cases)# ---------- 批次 3：四种容易混淆的情况 ----------

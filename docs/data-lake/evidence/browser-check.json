@@ -1,0 +1,23 @@
+{
+  "wrong_has_expected_failure": true,
+  "pass_has_1_of_2": true,
+  "replay_has_real_steps": true,
+  "draft_restored_after_refresh": true,
+  "answer_requires_active_open": true,
+  "prerequisite_links": true,
+  "dl11_stage_count": 5,
+  "dl11_stage_evidence": true,
+  "dl12_publish_fail_recovery": true,
+  "mobile": {
+    "width": 390,
+    "scrollWidth": 390,
+    "title": "进阶项目 · DL11 从空项目写采集与计算代码",
+    "files": [
+      "service.py",
+      "transform.sql",
+      "report.sql",
+      "tests.py"
+    ]
+  },
+  "console_errors": []
+}

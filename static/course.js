@@ -7,7 +7,7 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const S = {
-    lessons: [], problems: [], meta: null, cap: null, cm: null, lang: 'sql',
+    lessons: [], problems: [], meta: null, cap: null, cm: null, lang: 'sql', stage: 0,
     result: null, cases: [], idx: 0, capTimeline: [], step: 0,
     timer: null, busy: false, seq: 0, saved: '', setting: false,
     mascotMoment: null, rollbackSeen: false, guess: {}, httpStatus: null, assistSeq: 0, cppSeq: 0,
@@ -45,6 +45,7 @@
   let cache = {};
   try { cache = JSON.parse(localStorage.getItem(KEY + 'practice') || '{}') || {}; } catch { }
   cache.drafts = cache.drafts || {}; cache.done = cache.done || {};
+  cache.stageIndex = cache.stageIndex || {}; cache.stageDone = cache.stageDone || {};
   const write = () => { try { localStorage.setItem(KEY + 'practice', JSON.stringify(cache)); return true; } catch { return false; } };
 
   function option(el, value, label) { const o = node('option', label); o.value = value; el.add(o); }
@@ -124,7 +125,16 @@
   function models() {
     if (S.cap) return arr(S.lang === 'python' ? S.cap.presets : S.cap.sql_presets).map(p => ({ id: p.id, label: p.name, code: p.code }));
     const l = S.meta;
-    if (l.build_presets) return arr(l.build_presets[S.lang]).map(p => ({ id: p.id, label: p.name, code: p.code }));
+    if (l.build_presets) {
+      const all = arr(l.build_presets[S.lang]).map(p => ({ id: p.id, label: p.name, code: p.code }));
+      const stage = arr(l.lake_stages)[S.stage];
+      if (stage && S.lang === stage.focus) {
+        const ids = [stage.preset, stage.preset + '_ref', 'reference'];
+        return [...all.filter(p => ids.includes(p.id)), ...all.filter(p => !ids.includes(p.id))];
+      }
+      if (stage) return all.filter(p => ['starter', 'reference'].includes(p.id));
+      return all;
+    }
     return [{ id: 'starter', label: '起始代码', code: l.starter }, ...(typeof l.solution === 'string' ? [{ id: 'solution', label: '参考解法', code: l.solution }] : [])];
   }
   function editorMode() {
@@ -147,6 +157,54 @@
     rows.forEach(r => { const tr = body.insertRow(); arr(r).forEach(v => tr.insertCell().textContent = v); });
     box.append(t); wrap.append(box);
     return wrap;
+  }
+  function renderPrereqs() {
+    const wrap = $('prereq-wrap'); wrap.replaceChildren();
+    const ids = arr(S.meta?.prerequisites);
+    wrap.hidden = !ids.length;
+    if (!ids.length) return;
+    wrap.append(node('span', '先修 / 可选前导：'));
+    ids.forEach(id => {
+      const target = S.lessons.find(l => l.id === id);
+      if (!target) return;
+      const b = node('button', id + ' · ' + target.title.replace(/^进阶项目 · /, ''));
+      b.type = 'button';
+      b.onclick = () => { const i = S.lessons.findIndex(l => l.id === id); if (i >= 0) select(i, true); };
+      wrap.append(b);
+    });
+  }
+  function renderLakeStages() {
+    const wrap = $('lake-stages'); wrap.replaceChildren();
+    const stages = arr(S.meta?.lake_stages);
+    wrap.hidden = !stages.length;
+    if (!stages.length) { $('run').textContent = '运行测试 ▷'; return; }
+    const buttons = node('div', null, 'lake-stage-buttons');
+    const done = arr(cache.stageDone[S.meta.id]);
+    stages.forEach((stage, i) => {
+      const b = node('button', stage.id + ' · ' + stage.title);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(i === S.stage));
+      if (done.includes(stage.id)) b.className = 'is-done';
+      b.onclick = () => selectLakeStage(i);
+      buttons.append(b);
+    });
+    wrap.append(buttons);
+    const current = stages[S.stage];
+    const detail = node('div', null, 'lake-stage-detail');
+    detail.append(node('strong', '本阶段：' + current.goal + ' '));
+    detail.append(node('span', '验证：' + current.evidence));
+    wrap.append(detail);
+    $('run').textContent = '运行阶段 ' + current.id + '/5 ▷';
+  }
+  function selectLakeStage(index) {
+    if (!S.meta || S.busy) return;
+    const stages = arr(S.meta.lake_stages);
+    if (!stages[index]) return;
+    S.seq++; S.busy = false; $('run').disabled = false;
+    cache.stageIndex[S.meta.id] = index; write();
+    S.stage = index; S.lang = stages[index].focus;
+    $('lang').value = S.lang;
+    clearResult(); editorMode(); renderLakeStages();
   }
   function renderPredict() {
     const p = S.meta?.predict;
@@ -176,6 +234,7 @@
   function engineBadge(l) {
     const e = l.engine || '';
     if (l.mode === 'capstone') return 'SQLite · 原实验室运行器 · POST /api/run';
+    if (e === 'lake') return 'Python + DuckDB + Parquet · 本机真实运行 · POST /api/course/run';
     if (e === 'cloud') return 'PostgreSQL + DuckDB/本地数据湖 · POST /api/course/run';
     if (e === 'k8s') return 'Docker/Kubernetes（实测或示意）· POST /api/course/run';
     if (e.startsWith('pg_')) return '真实 PostgreSQL · POST /api/course/run';
@@ -315,7 +374,8 @@
     S.meta = l;
     S.cap = l.mode === 'capstone' ? S.problems.find(p => p.id === l.problem) : null;
     const cap = l.mode === 'capstone';
-    S.lang = cap ? 'python' : (l.build_presets ? 'service' : 'sql');
+    S.stage = Math.max(0, Math.min(arr(l.lake_stages).length - 1, Number(cache.stageIndex[l.id] || 0)));
+    S.lang = cap ? 'python' : (l.lake_stages ? l.lake_stages[S.stage].focus : (l.build_presets ? 'service' : (l.editor_lang || 'sql')));
     nav();
     $('workspace').hidden = false;
     $('prev').disabled = i === 0; $('next').disabled = i === S.lessons.length - 1;
@@ -324,11 +384,12 @@
     $('chapter').textContent = 'LESSON ' + String(i + 1).padStart(2, '0') + ' / ' + String(S.lessons.length).padStart(2, '0');
     $('crumb').textContent = l.chapter || (cap ? '综合应用' : 'SQL 基础');
     $('engine-badge').textContent = engineBadge(l);
-    $('kind').textContent = cap ? '业务综合' : '基础练习';
+    $('kind').textContent = cap ? '业务综合' : (l.engine === 'lake' ? '进阶项目' : '基础练习');
     $('title').textContent = l.title;
     $('summary').textContent = txt(l.summary || S.cap?.subtitle);
     $('minutes').textContent = '预计 ' + (l.minutes || 4) + ' 分钟 · 一个概念 · 先猜再改再运行';
     $('goal').textContent = txt(l.goal);
+    renderPrereqs();
     const ex = $('example'); ex.replaceChildren();
     if (cap) {
       const d = node('details'); d.append(node('summary', '完整题面与四个场景'));
@@ -357,7 +418,8 @@
     $('choice-wrap').hidden = !ch.options.length;
     const lang = $('lang'); lang.replaceChildren();
     if (cap) option(lang, 'python', 'Python');
-    if (l.build_presets) Object.keys(l.build_presets).forEach(k => option(lang, k, { schema: 'schema.sql', service: 'service.py', tests: 'tests_extra.py' }[k] || k));
+    if (l.build_presets) Object.keys(l.build_presets).forEach(k => option(lang, k, { schema: 'schema.sql', service: 'service.py', transform: 'transform.sql', report: 'report.sql', tests: l.lake_stages ? 'tests.py' : 'tests_extra.py' }[k] || k));
+    else if (l.editor_lang) option(lang, l.editor_lang, { python: 'Python', sql: 'SQL', yaml: 'YAML' }[l.editor_lang] || l.editor_lang);
     else if ((l.engine === 'k8s') || (l.cloud_case === 'd5')) option(lang, 'yaml', 'YAML');
     else option(lang, 'sql', 'SQL');
     lang.value = S.lang; lang.disabled = !cap && !l.build_presets;
@@ -366,6 +428,7 @@
     $('scenario-wrap').hidden = !sc.options.length;
     chooseScenario();
     editorMode();
+    renderLakeStages();
     renderAssist();
     renderHistory(); renderCounts();
     $('run').disabled = cap && !S.cap;
@@ -437,6 +500,7 @@
     let payload = null;
     try {
       payload = cap ? { problem: S.meta.problem, mode: S.lang, scenario: $('scenario').value, code: value } : { lesson_id: S.meta.id, code: S.meta.build_presets ? '' : value, choice: $('choice').value, scenario: $('scenario').value };
+      if (S.meta.lake_stages) payload.stage = S.stage + 1;
       if (S.meta.build_presets) {
         payload.files = {};
         for (const k of Object.keys(S.meta.build_presets)) {
@@ -455,7 +519,17 @@
       } else {
         S.cases = arr(res.cases).map(c => ({ ...c, timeline: foundationTimeline(c) }));
       }
-      if ((res.passed ?? res.judge?.passed) === true) { cache.done[S.meta.id] = true; write(); nav(); mascot('pass'); }
+      if ((res.passed ?? res.judge?.passed) === true) {
+        cache.done[S.meta.id] = true;
+        if (S.meta.lake_stages) {
+          const done = arr(cache.stageDone[S.meta.id]);
+          const id = S.meta.lake_stages[S.stage].id;
+          if (!done.includes(id)) done.push(id);
+          cache.stageDone[S.meta.id] = done;
+          renderLakeStages();
+        }
+        write(); nav(); mascot('pass');
+      }
       resultStatus();
       $('result-body').hidden = false; $('results-empty').hidden = true;
       $('run-label').textContent = res.run_id ? '本次运行 · ' + res.run_id : '本次运行';
@@ -487,7 +561,10 @@
     });
     const c = S.cases[i], d = $('case-detail'); d.replaceChildren();
     if (c.passed == null && c.extra?.not_measured) d.append(node('div', c.extra.not_measured, 'notice'));
-    d.append(node('div', '输入：' + (S.meta.build_presets ? 'schema.sql + service.py + tests_extra.py（草稿）' : code()) + (S.meta.scenarios?.length || S.cap ? ' · 场景 ' + $('scenario').value : ''), 'small'));
+    const inputLabel = S.meta.lake_stages
+      ? `DL11 阶段 ${S.stage + 1}/5 · service.py + transform.sql + report.sql + tests.py（草稿）`
+      : (S.meta.build_presets ? 'schema.sql + service.py + tests_extra.py（草稿）' : code());
+    d.append(node('div', '输入：' + inputLabel + (S.meta.scenarios?.length || S.cap ? ' · 场景 ' + $('scenario').value : ''), 'small'));
     if (c.error) d.append(node('div', txt(c.error), 'error'));
     if (Object.hasOwn(c, 'expected') || Object.hasOwn(c, 'actual')) {
       const values = node('div', null, 'readout');
@@ -508,6 +585,63 @@
     const root = $('case-extra'); root.replaceChildren();
     const x = c.extra || {};
     const card = (title) => { const el = node('div', null, 'resp-card'); el.append(node('div', title, 'resp-head')); root.append(el); return el; };
+    if (x.architecture) {
+      const el = card('本次真实路径 · 不是示意图');
+      const line = node('div', null, 'lake-flow');
+      arr(x.architecture).forEach((label, i) => {
+        line.append(node('span', label, 'actor'));
+        if (i < x.architecture.length - 1) line.append(node('span', '→', 'small'));
+      });
+      el.append(line);
+      const det = node('details'); det.append(node('summary', '数据字典与本关约定'));
+      det.append(node('pre', txt(S.meta?.schema))); el.append(det);
+    }
+    if (x.input || x.raw_files) {
+      const el = card('真实输入、原始行与校验和');
+      if (arr(x.raw_files).length) x.raw_files.forEach(f => el.append(node('div', f, 'small')));
+      const det = node('details'); det.append(node('summary', '原始输入 ' + arr(x.input).length + ' 行'));
+      det.append(node('pre', JSON.stringify(x.input, null, 1))); el.append(det);
+      if (x.classification) el.append(node('div', '互斥分类：' + JSON.stringify(x.classification), 'frontend-line'));
+      if (arr(x.rejections).length || arr(x.duplicates).length) {
+        const bad = node('details'); bad.append(node('summary', '拒收/冲突与重复证据'));
+        bad.append(node('pre', JSON.stringify({ rejected: x.rejections, duplicates: x.duplicates }, null, 1))); el.append(bad);
+      }
+    }
+    if (x.scan) {
+      const el = card('Parquet 扫描证据 · EXPLAIN (ANALYZE, FORMAT JSON)');
+      el.append(node('div', 'Scanning Files: ' + x.scan.scanning_files + ' · Total Files Read: ' + x.scan.total_files_read, 'frontend-line'));
+      if (x.scan.file_filters) el.append(node('div', 'File Filters: ' + x.scan.file_filters, 'small'));
+      if (x.scan.filenames) el.append(node('pre', typeof x.scan.filenames === 'string' ? x.scan.filenames : JSON.stringify(x.scan.filenames, null, 1)));
+      const det = node('details'); det.append(node('summary', '完整执行计划'));
+      det.append(node('pre', x.scan.plan || JSON.stringify(x.scan.plan_json, null, 1))); el.append(det);
+    }
+    if (x.partitions) {
+      const el = card('实际分区与文件');
+      if (arr(x.partitions).length) x.partitions.forEach(f => el.append(node('div', f, 'small')));
+      else el.append(node('div', '（本次没有 Parquet 输出）', 'small'));
+    }
+    if (x.lineage) {
+      const el = card('行级血缘 · 日报回到源记录');
+      el.append(node('pre', JSON.stringify(x.lineage, null, 1)));
+    }
+    if (x.checks) {
+      const el = card('质量检查 / 独立断言');
+      Object.entries(x.checks).forEach(([name, value]) => el.append(node('div', (value ? '✓ ' : '× ') + name, value ? 'frontend-line' : 'error')));
+    }
+    if (x.recovery) {
+      const el = card('故障注入与恢复证据');
+      el.append(node('pre', JSON.stringify(x.recovery, null, 1)));
+    }
+    if (x.output) {
+      const el = card('本次代码输出');
+      const det = node('details'); det.append(node('summary', '查询结果 / 子进程 stdout 与 stderr'));
+      det.append(node('pre', JSON.stringify(x.output, null, 1))); el.append(det);
+    }
+    if (x.published_report) {
+      const el = card('独立连接读回的发布版本');
+      el.append(node('div', 'version=' + x.published_report.version, 'frontend-line'));
+      el.append(node('pre', JSON.stringify(x.published_report.reconciliation, null, 1)));
+    }
     if (x.connection) {
       const el = card('当前连接（真实观测）');
       el.append(node('pre', JSON.stringify(x.connection, null, 1)));
@@ -692,7 +826,7 @@
   function renderSwimlane(all) {
     const el = $('swimlane');
     const eng = S.meta && S.meta.engine;
-    if (eng !== 'cloud' && eng !== 'k8s') { el.hidden = true; el.replaceChildren(); return; }
+    if (eng !== 'cloud' && eng !== 'k8s' && eng !== 'lake') { el.hidden = true; el.replaceChildren(); return; }
     el.hidden = false; el.replaceChildren();
     const lanes = {};
     all.forEach((e, i) => { const a = e.actor || '系统'; (lanes[a] = lanes[a] || []).push([e, i]); });
@@ -897,7 +1031,7 @@
     S.cm.on('change', remember);
   } else e.addEventListener('input', remember);
   $('run').onclick = run;
-  $('lang').onchange = () => { if (S.busy) { S.seq++; S.busy = false; $('run').disabled = false; } clearResult(); S.lang = $('lang').value; editorMode(); };
+  $('lang').onchange = () => { if (S.busy) { S.seq++; S.busy = false; $('run').disabled = false; } clearResult(); S.lang = $('lang').value; editorMode(); renderLakeStages(); };
   $('scenario').onchange = () => { if (S.busy) { S.seq++; S.busy = false; $('run').disabled = false; } clearResult(); chooseScenario(); };
   $('apply').onclick = () => {
     const a = models().find(m => m.id === $('preset').value); if (!a) return;

@@ -95,6 +95,7 @@
           <div class="pin-head"><span class="pin pin-blue" aria-hidden="true"></span><h2 id="brief-title">题目</h2><span id="kind" class="tag">基础练习</span></div>
           <div class="pad">
             <div id="goal" class="prose"></div>
+            <div id="prereq-wrap" class="prereq-wrap" hidden></div>
             <div id="predict-wrap" hidden>
               <p id="predict-q" class="predict-q"></p>
               <div id="predict-opts" class="pills" role="group" aria-label="先猜结果"></div>
@@ -132,6 +133,7 @@
             <label>测试场景<select id="scenario" name="scenario"></select></label>
             <span id="scenario-note" class="small"></span>
           </div>
+          <div id="lake-stages" class="lake-stages" hidden></div>
           <div class="editwrap"><label class="sr" for="editor">编辑本题代码</label><textarea id="editor" spellcheck="false"></textarea></div>
           <div class="runbar"><span class="small">Ctrl / ⌘ + Enter</span><button id="run" class="primary" type="button">运行测试 ▷</button></div>
         </section>

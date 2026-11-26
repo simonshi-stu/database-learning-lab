@@ -1,0 +1,82 @@
+OK   00a HTTP=200 正确=True 错误=False
+OK   00b HTTP=200 正确=True 错误=False 文件复核2表
+OK   00c HTTP=200 正确=True 错误=False 文件复核2表
+OK   00d HTTP=200 正确=True 错误=False 文件复核1表
+OK   select HTTP=200 正确=True 错误=False
+OK   where HTTP=200 正确=True 错误=False
+OK   fk HTTP=200 正确=True 错误=False 文件复核4表
+OK   join HTTP=200 正确=True 错误=False 文件复核2表
+OK   stock HTTP=200 正确=True 错误=False
+OK   decrement HTTP=200 正确=True 错误=False
+OK   commit HTTP=200 正确=True 错误=False 文件复核1表
+OK   rollback HTTP=200 正确=True 错误=False 文件复核1表
+OK   retry HTTP=200 正确=True 错误=False 文件复核2表
+OK   choice HTTP=200 正确=True 错误=False 文件复核1表
+OK   choice:choice-commit HTTP=200 正确=True 错误=False 文件复核1表
+OK   order:success HTTP=200 正确=True 错误=False 文件复核3表
+OK   order:insufficient HTTP=200 正确=True 错误=False 文件复核3表
+OK   order:missing HTTP=200 正确=True 错误=False 文件复核3表
+OK   wait HTTP=200 正确=True 错误=False 文件复核1表
+OK   busy HTTP=200 正确=True 错误=False 文件复核2表
+OK   exit HTTP=200 正确=True 错误=False 文件复核4表
+BAD  pg-connect HTTP=200 正确=None 错误=None
+BAD  pg-iso:rc HTTP=200 正确=None 错误=None
+BAD  pg-iso:rr HTTP=200 正确=None 错误=None
+BAD  pg-lock:same HTTP=200 正确=None 错误=None
+BAD  pg-lock:different HTTP=200 正确=None 错误=None
+BAD  pg-lock:timeout HTTP=200 正确=None 错误=None
+BAD  deadlock HTTP=200 正确=None 错误=None
+BAD  pg-plan:high HTTP=200 正确=None 错误=None
+BAD  pg-plan:high HTTP=200 正确=None 错误=None
+BAD  pg-iso:rc HTTP=200 正确=None 错误=None
+BAD  pg-iso:rr HTTP=200 正确=None 错误=None
+BAD  pg-plan:low HTTP=200 正确=None 错误=None
+BAD  pg-plan:small HTTP=200 正确=None 错误=None
+BAD  pg-build-sales HTTP=200 正确=None 错误=None
+BAD  pg-build-hotel HTTP=200 正确=None 错误=None
+OK   cpp-page:empty HTTP=200 正确=True 错误=False
+OK   cpp-page:exact HTTP=200 正确=True 错误=False
+OK   cpp-page:overflow HTTP=200 正确=True 错误=False
+OK   cpp-buffer:cap1 HTTP=200 正确=True 错误=True
+OK   cpp-buffer:pinned HTTP=200 正确=True 错误=False
+OK   cpp-buffer:writeback HTTP=200 正确=True 错误=True
+OK   cpp-btree:empty HTTP=200 正确=True 错误=True
+OK   cpp-btree:missing HTTP=200 正确=True 错误=False
+OK   cpp-btree:dup HTTP=200 正确=True 错误=True
+OK   cpp-btree:split HTTP=200 正确=True 错误=True
+OK   cpp-btree:scan HTTP=200 正确=True 错误=True
+OK   cpp-exec:empty HTTP=200 正确=True 错误=True
+OK   cpp-exec:boundary HTTP=200 正确=True 错误=False
+OK   cpp-exec:project HTTP=200 正确=True 错误=True
+OK   cpp-locks:conflict HTTP=200 正确=True 错误=True
+OK   cpp-locks:rollback HTTP=200 正确=True 错误=True
+OK   cpp-locks:shared HTTP=200 正确=True 错误=True
+BAD  pg-contrast HTTP=200 正确=None 错误=None
+BAD  pg-guide-sales-schema HTTP=200 正确=None 错误=None
+BAD  pg-guide-sales-single HTTP=200 正确=None 错误=None
+BAD  pg-guide-sales-insufficient HTTP=200 正确=None 错误=None
+BAD  pg-guide-sales-retry HTTP=200 正确=None 错误=None
+BAD  pg-guide-sales-race HTTP=200 正确=None 错误=None
+BAD  pg-guide-hotel-schema HTTP=200 正确=None 错误=None
+BAD  pg-guide-hotel-single HTTP=200 正确=None 错误=None
+BAD  pg-guide-hotel-twonights HTTP=200 正确=None 错误=None
+BAD  pg-guide-hotel-conflict HTTP=200 正确=None 错误=None
+BAD  pg-guide-hotel-retry HTTP=200 正确=None 错误=None
+BAD  pg-final-sales HTTP=200 正确=None 错误=None
+BAD  pg-final-hotel HTTP=200 正确=None 错误=None
+BAD  d2 HTTP=200 正确=None 错误=None
+BAD  l4 HTTP=200 正确=None 错误=None
+BAD  l3 HTTP=200 正确=None 错误=None
+BAD  l5 HTTP=200 正确=None 错误=None
+BAD  c1 HTTP=200 正确=None 错误=None
+BAD  d5:recover HTTP=200 正确=None 错误=None
+BAD  f1 HTTP=200 正确=None 错误=None
+BAD  l2 HTTP=200 正确=None 错误=None
+BAD  l2:all-bad HTTP=200 正确=None 错误=None
+BAD  l2:no-bad HTTP=200 正确=None 错误=None
+BAD  d3 HTTP=200 正确=None 错误=None
+BAD  d4 HTTP=200 正确=None 错误=None
+OK   k1 HTTP=200 正确=True 错误=True
+OK   k3 HTTP=200 正确=None 错误=None
+
+40/80 用例符合预期；报告 runs/course-verify-report.json

@@ -1,0 +1,23 @@
+OK   00a HTTP=200 正确=True 错误=False
+OK   00b HTTP=200 正确=True 错误=False 文件复核2表
+OK   00c HTTP=200 正确=True 错误=False 文件复核2表
+OK   00d HTTP=200 正确=True 错误=False 文件复核1表
+OK   select HTTP=200 正确=True 错误=False
+OK   where HTTP=200 正确=True 错误=False
+OK   fk HTTP=200 正确=True 错误=False 文件复核4表
+OK   join HTTP=200 正确=True 错误=False 文件复核2表
+OK   stock HTTP=200 正确=True 错误=False
+OK   decrement HTTP=200 正确=True 错误=False
+OK   commit HTTP=200 正确=True 错误=False 文件复核1表
+OK   rollback HTTP=200 正确=True 错误=False 文件复核1表
+OK   retry HTTP=200 正确=True 错误=False 文件复核2表
+OK   choice HTTP=200 正确=True 错误=False 文件复核1表
+OK   choice:choice-commit HTTP=200 正确=True 错误=False 文件复核1表
+OK   order:success HTTP=200 正确=True 错误=False 文件复核3表
+OK   order:insufficient HTTP=200 正确=True 错误=False 文件复核3表
+OK   order:missing HTTP=200 正确=True 错误=False 文件复核3表
+OK   wait HTTP=200 正确=True 错误=False 文件复核1表
+OK   busy HTTP=200 正确=True 错误=False 文件复核2表
+OK   exit HTTP=200 正确=True 错误=False 文件复核4表
+
+21/21 用例符合预期；报告 runs/course-verify-report.json

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="590" viewBox="0 0 1200 590" role="img" aria-labelledby="title desc">
+  <title id="title">订单与退款数据湖教学架构</title>
+  <desc id="desc">从源数据库经原始文件、校验去重、Parquet 分区到独立读取和发布报表的示意架构。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a68b63"/></marker>
+    <style>
+      .bg{fill:#faf7ef}.paper{fill:#fffdf8;stroke:#dfd5c2;stroke-width:2}.raw{fill:#f7ead1;stroke:#c89d55}.silver{fill:#e7efe5;stroke:#7f9c7b}.report{fill:#e8eef5;stroke:#829ab3}.title{font:700 28px 'Microsoft YaHei',sans-serif;fill:#382f26}.sub{font:15px 'Microsoft YaHei',sans-serif;fill:#7c6c59}.head{font:700 19px 'Microsoft YaHei',sans-serif;fill:#493c2e}.body{font:15px 'Microsoft YaHei',sans-serif;fill:#6e5f4e}.small{font:13px 'Microsoft YaHei',sans-serif;fill:#8a7b68}.line{fill:none;stroke:#a68b63;stroke-width:2.5;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1200" height="590" rx="22" class="bg"/>
+  <text x="48" y="55" class="title">订单与退款数据湖 · 教学架构</text>
+  <text x="48" y="84" class="sub">示意图（帮助理解分层，不代表线上部署或性能实测） · 所有样本均为合成数据</text>
+
+  <rect x="48" y="140" width="210" height="126" rx="14" class="paper"/>
+  <text x="70" y="178" class="head">源业务库</text>
+  <text x="70" y="208" class="body">orders / payments / refunds</text>
+  <text x="70" y="235" class="body">hotel bookings</text>
+
+  <rect x="300" y="140" width="220" height="126" rx="14" class="paper"/>
+  <text x="322" y="178" class="head">全量 / 增量采集</text>
+  <text x="322" y="208" class="body">event_id 事件流</text>
+  <text x="322" y="235" class="body">到达水位 + 至少一次投递</text>
+
+  <rect x="562" y="140" width="240" height="126" rx="14" class="raw"/>
+  <text x="584" y="178" class="head">Raw · 不可变 JSONL</text>
+  <text x="584" y="208" class="body">内容寻址文件 + SHA-256</text>
+  <text x="584" y="235" class="body">raw_file / raw_line / run_id</text>
+
+  <rect x="844" y="140" width="308" height="126" rx="14" class="paper"/>
+  <text x="866" y="178" class="head">可选真实 PostgreSQL outbox</text>
+  <text x="866" y="208" class="body">业务写入与待发布事件同事务</text>
+  <text x="866" y="235" class="body">未配置 LAKE_PG_DSN → 明确跳过</text>
+
+  <path d="M258 203 H292" class="line"/><path d="M520 203 H554" class="line"/><path d="M802 203 H836" class="line"/>
+
+  <rect x="300" y="330" width="240" height="134" rx="14" class="paper"/>
+  <text x="322" y="368" class="head">校验 / 隔离 / 去重</text>
+  <text x="322" y="398" class="body">接受 + 重复 + 拒收/冲突 = 输入</text>
+  <text x="322" y="425" class="body">同 ID 同内容：幂等</text>
+  <text x="322" y="450" class="body">同 ID 异内容：冲突隔离</text>
+
+  <rect x="582" y="330" width="260" height="134" rx="14" class="silver"/>
+  <text x="604" y="368" class="head">Silver · Parquet 事实</text>
+  <text x="604" y="398" class="body">sales / business_date=YYYY-MM-DD</text>
+  <text x="604" y="425" class="body">hotel / stay_date=YYYY-MM-DD</text>
+  <text x="604" y="450" class="body">整数分 · Asia/Shanghai 业务日</text>
+
+  <rect x="884" y="330" width="268" height="134" rx="14" class="report"/>
+  <text x="906" y="368" class="head">Gold · 日报与对账</text>
+  <text x="906" y="398" class="body">staging → 质量门禁 → CURRENT</text>
+  <text x="906" y="425" class="body">独立 DuckDB 连接读回</text>
+  <text x="906" y="450" class="body">PREVIOUS 指针支持回退</text>
+
+  <path d="M682 266 V310 H420 V322" class="line"/>
+  <path d="M540 397 H574" class="line"/>
+  <path d="M842 397 H876" class="line"/>
+
+  <rect x="48" y="330" width="210" height="134" rx="14" class="paper"/>
+  <text x="70" y="368" class="head">真实验收证据</text>
+  <text x="70" y="398" class="body">净额 5,000 分</text>
+  <text x="70" y="425" class="body">错解 14,900 分</text>
+  <text x="70" y="450" class="body">8 日扫描 1/2 文件</text>
+  <path d="M258 397 H292" class="line"/>
+
+  <text x="48" y="520" class="small">行级血缘：日报 → sales_facts.event_id → raw_file + raw_line + run_id → 原始 JSONL 行</text>
+  <text x="48" y="548" class="small">迟到跨日只重建受影响分区；未受影响文件用 SHA-256 验证不变。</text>
+</svg>

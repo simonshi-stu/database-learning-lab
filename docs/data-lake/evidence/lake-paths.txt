@@ -1,0 +1,136 @@
+{
+  "counts": {
+    "lessons": 75,
+    "chapters": 8,
+    "lake_lessons": 12,
+    "old_l_f_lessons": 6,
+    "pages_total": 2,
+    "course_pages": 1,
+    "original_lab_pages": 1,
+    "course_http_endpoints": 5,
+    "course_http_paths": [
+      "/api/course",
+      "/api/course/assist",
+      "/api/course/cpp-replay",
+      "/api/course/run",
+      "/course"
+    ],
+    "frontend_hash_routes": 76,
+    "lake_hash_routes": 12
+  },
+  "DL11": {
+    "stages": [
+      {
+        "stage": 1,
+        "title": "采集",
+        "passed": true,
+        "checks": {
+          "四个文件真实写入": true,
+          "采集代码执行": true,
+          "原始批次已确认": true,
+          "原始输入 6 行": true
+        }
+      },
+      {
+        "stage": 2,
+        "title": "校验去重",
+        "passed": true,
+        "checks": {
+          "四个文件真实写入": true,
+          "采集代码执行": true,
+          "互斥分类 5/1/0": true,
+          "行数守恒": true,
+          "销售与酒店分区落盘": true
+        }
+      },
+      {
+        "stage": 3,
+        "title": "分区读回",
+        "passed": true,
+        "checks": {
+          "四个文件真实写入": true,
+          "采集发布代码执行": true,
+          "单日净额 -4900": true,
+          "分区裁剪 1/2": true
+        }
+      },
+      {
+        "stage": 4,
+        "title": "日报对账",
+        "passed": true,
+        "checks": {
+          "四个文件真实写入": true,
+          "采集发布代码执行": true,
+          "销售日报": true,
+          "酒店间夜": true,
+          "独立发布报表对账": true
+        }
+      },
+      {
+        "stage": 5,
+        "title": "独立测试",
+        "passed": true,
+        "checks": {
+          "四个文件真实写入": true,
+          "采集发布代码执行": true,
+          "销售计算 SQL": true,
+          "酒店报表 SQL": true,
+          "独立测试": true
+        }
+      }
+    ],
+    "same_raw_file": true,
+    "sales_total": 5000
+  },
+  "DL12": [
+    {
+      "scenario": "crash",
+      "passed": true,
+      "recovery": {
+        "mode": "crash",
+        "first_confirmed": false,
+        "raw_files": 1
+      },
+      "independent_check": true
+    },
+    {
+      "scenario": "conflict",
+      "passed": true,
+      "recovery": {
+        "mode": "conflict",
+        "failed_published": false,
+        "old_readable": true
+      },
+      "independent_check": true
+    },
+    {
+      "scenario": "publish_fail",
+      "passed": true,
+      "recovery": {
+        "mode": "publish_fail",
+        "failed_published": false,
+        "old_readable": true,
+        "recovered": true,
+        "old_version": "report-0b5bf2004575",
+        "new_version": "report-c701d0be8a67"
+      },
+      "independent_check": true
+    },
+    {
+      "scenario": "backfill",
+      "passed": true,
+      "recovery": {
+        "mode": "backfill",
+        "unaffected_files_unchanged": true
+      },
+      "independent_check": true
+    }
+  ],
+  "DL07": {
+    "scanning_files": "1/2",
+    "total_files_read": 1
+  },
+  "postgresql_outbox": "跳过",
+  "kafka_spark_iceberg": "未实测"
+}
+PASS

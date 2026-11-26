@@ -1,0 +1,151 @@
+raw_sha256: 709c24db029885ec79a9073569eaa995d5ef6448219e93797e6b956b86eb138e
+
+daily: {'2026-01-07': 9900, '2026-01-08': -4900}
+
+total: 5000
+
+files: ['silver/business_date=2026-01-07/data_0.parquet', 'silver/business_date=2026-01-08/data_0.parquet']
+
+┌─────────────────────────────────────┐
+
+│┌───────────────────────────────────┐│
+
+││    Query Profiling Information    ││
+
+│└───────────────────────────────────┘│
+
+└─────────────────────────────────────┘
+
+EXPLAIN ANALYZE SELECT sum(signed_cents) FROM facts                        WHERE business_date = DATE '2026-01-08'
+
+┌────────────────────────────────────────────────┐
+
+│┌──────────────────────────────────────────────┐│
+
+││              Total Time: 0.0039s             ││
+
+│└──────────────────────────────────────────────┘│
+
+└────────────────────────────────────────────────┘
+
+┌───────────────────────────┐
+
+│           QUERY           │
+
+└─────────────┬─────────────┘
+
+┌─────────────┴─────────────┐
+
+│      EXPLAIN_ANALYZE      │
+
+│    ────────────────────   │
+
+│                           │
+
+│           0 rows          │
+
+│           0.00s           │
+
+└─────────────┬─────────────┘
+
+┌─────────────┴─────────────┐
+
+│    UNGROUPED_AGGREGATE    │
+
+│    ────────────────────   │
+
+│    Aggregates: sum(#0)    │
+
+│                           │
+
+│                           │
+
+│                           │
+
+│           1 row           │
+
+│           0.00s           │
+
+└─────────────┬─────────────┘
+
+┌─────────────┴─────────────┐
+
+│         PROJECTION        │
+
+│    ────────────────────   │
+
+│        signed_cents       │
+
+│                           │
+
+│                           │
+
+│                           │
+
+│           2 rows          │
+
+│           0.00s           │
+
+└─────────────┬─────────────┘
+
+┌─────────────┴─────────────┐
+
+│         TABLE_SCAN        │
+
+│    ────────────────────   │
+
+│         Function:         │
+
+│        PARQUET_SCAN       │
+
+│                           │
+
+│        Projections:       │
+
+│        signed_cents       │
+
+│                           │
+
+│       File Filters:       │
+
+│ (business_date = '2026-01 │
+
+│        -08'::DATE)        │
+
+│                           │
+
+│    Scanning Files: 1/2    │
+
+│    Total Files Read: 1    │
+
+│                           │
+
+│        Filename(s):       │
+
+│  <local-temp>  │
+
+│   \Local\Temp\lake-first  │
+
+│    -fjss7sux\one\silver   │
+
+│ \business_date=2026-01-08 │
+
+│      \data_0.parquet      │
+
+│                           │
+
+│                           │
+
+│                           │
+
+│           2 rows          │
+
+│           0.00s           │
+
+└───────────────────────────┘
+
+
+
+PASS: repeat uses identical raw bytes and equal daily results; wrong dedup is rejected
+
+PASS

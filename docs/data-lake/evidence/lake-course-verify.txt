@@ -1,0 +1,61 @@
+DL01 reference normal True
+DL01 reference boundary True
+DL01 reference wrong True
+DL01 starter normal False
+DL02 reference normal True
+DL02 reference boundary True
+DL02 reference wrong True
+DL02 starter normal False
+DL03 reference normal True
+DL03 reference boundary True
+DL03 reference wrong True
+DL03 starter normal False
+DL04 reference normal None
+DL04 reference boundary None
+DL04 reference wrong None
+DL04 starter normal None
+DL05 reference normal True
+DL05 reference boundary True
+DL05 reference wrong True
+DL05 starter normal False
+DL06 reference normal True
+DL06 reference boundary True
+DL06 reference wrong True
+DL06 starter normal False
+DL07 reference normal True 1/2
+DL07 reference boundary True 1/2
+DL07 reference wrong True 1/3
+DL07 starter normal False
+DL08 reference normal True 2/2
+DL08 reference boundary True 3/3
+DL08 reference wrong True 3/3
+DL08 starter normal False
+DL09 reference normal True
+DL09 reference boundary True
+DL09 reference wrong True
+DL09 starter normal False
+DL10 reference normal True
+DL10 reference boundary True
+DL10 reference wrong True
+DL10 starter normal False
+DL11 reference stage-1 True
+DL11 reference stage-2 True
+DL11 reference stage-3 True 1/2
+DL11 reference stage-4 True
+DL11 reference stage-5 True
+DL11 starter stage-1 False
+DL11 starter stage-2 False
+DL11 starter stage-3 False
+DL11 starter stage-4 False
+DL11 starter stage-5 False
+DL11 reference normal True
+DL11 reference boundary True
+DL11 reference wrong True
+DL11 starter normal False
+DL12 reference crash True
+DL12 reference conflict True
+DL12 reference publish_fail True
+DL12 reference backfill True
+DL12 starter crash False
+
+59 组，失败 0 组；报告：runs/lake-course-verify.json
